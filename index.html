@@ -307,8 +307,8 @@
             </div>
 
             <!-- Active Tables -->
-            <div class="rooms-list" id="waiter-tables-list" style="display:grid;gap:15px;">
-                <div class="empty-state">
+            <div class="rooms-list" id="waiter-tables-list" style="display:grid; gap:15px; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));">
+                <div class="empty-state" style="grid-column: 1 / -1;">
                     <div class="empty-icon">🍽️</div>
                     <p class="empty-text">No tenés mesas activas</p>
                     <p class="empty-sub">Creá una mesa nueva arriba</p>
@@ -432,8 +432,19 @@
         </div>
 
         <!-- Menu Items -->
-        <div class="menu-items" id="menu-items">
+        <div class="menu-items" id="menu-items" style="flex: 1; overflow-y: auto;">
             <!-- Dynamic menu cards -->
+        </div>
+
+        <!-- Table Status / Orders (Visible to both) -->
+        <div id="active-orders-section" style="padding: 15px; background: var(--bg-sec); border-top: 1px solid var(--border); max-height: 200px; overflow-y: auto;">
+            <h3 style="font-size: 14px; margin: 0 0 10px 0; display: flex; justify-content: space-between; align-items: center;">
+                <span>🛒 Pedidos en curso</span>
+                <span id="room-total-display" style="color: var(--primary);">$0</span>
+            </h3>
+            <div id="order-items-list-display">
+                <p style="text-align:center; color: var(--text-sec); font-size:12px; padding:10px;">No hay pedidos confirmados</p>
+            </div>
         </div>
 
         <!-- My Order FAB -->

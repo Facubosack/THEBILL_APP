@@ -6,12 +6,12 @@
 // ---- Firebase Config ----
 // TODO: Replace with your actual Firebase config
 const firebaseConfig = {
-    apiKey: "YOUR_API_KEY",
-    authDomain: "YOUR_PROJECT.firebaseapp.com",
-    projectId: "YOUR_PROJECT_ID",
-    storageBucket: "YOUR_PROJECT.appspot.com",
-    messagingSenderId: "YOUR_SENDER_ID",
-    appId: "YOUR_APP_ID"
+    apiKey: "AIzaSyAdui9_mb0pKBFdgeWSvgG9Bqq4Wf1jZcg",
+    authDomain: "the-bill-app-8a613.firebaseapp.com",
+    projectId: "the-bill-app-8a613",
+    storageBucket: "the-bill-app-8a613.firebasestorage.app",
+    messagingSenderId: "942829686361",
+    appId: "1:942829686361:web:74a5e7d92595821580ab48"
 };
 
 // ---- Initialize Firebase ----
@@ -103,151 +103,153 @@ function updateBottomNav(screenId) {
 // ============================================
 // LOADING SCREEN
 // ============================================
-
 function initLoadingScreen() {
-    // Show loading for 2 seconds, then check auth
+    // Show loading briefly, then wait for Firebase Auth
     setTimeout(() => {
-        checkAuthState();
-    }, 2000);
+        // Fallback if auth state doesn't fire (e.g. no internet)
+        if (state.currentScreen === 'screen-loading') {
+            checkAuthState(); 
+        }
+    }, 3000);
 }
 
 // ============================================
-// AUTH STATE (Mocked for UI Testing)
+// AUTH STATE & REAL DATABASE LOGIC
 // ============================================
 
-function checkAuthState() {
-    const isMockLoggedIn = localStorage.getItem('tb_mock_logged_in') === 'true';
-
-    // Determine role from hash or default to client
-    let role = 'client';
-    if (window.location.hash === '#owner') role = 'owner';
-    else if (window.location.hash === '#mozo') role = 'waiter';
-
-    // Verify if email was saved as waiter
-    const savedEmail = localStorage.getItem('tb_mock_email');
-    const savedWaiters = JSON.parse(localStorage.getItem('tb_mock_waiters') || '["mozo1@bar.com", "mozo@bar.com"]');
-    if (savedEmail && savedWaiters.includes(savedEmail)) {
-        role = 'waiter';
-    }
-
-    if (isMockLoggedIn) {
-        state.user = {
-            uid: 'test-user-123',
-            displayName: 'Facundo',
-            email: 'facundo@test.com',
-            photoURL: '',
-            role: role
-        };
-        populateUserData(state.user);
-        routeUserByRole(role);
+auth.onAuthStateChanged(async (user) => {
+    if (user) {
+        try {
+            const userRef = db.collection('users').doc(user.uid);
+            const doc = await userRef.get();
+            let userData;
+            
+            if (doc.exists) {
+                userData = doc.data();
+            } else {
+                // --- NEW USER CREATION FLOW ---
+                let role = 'client';
+                let restaurantId = null;
+                
+                // 1. Check if owner hash
+                if (window.location.hash === '#owner') {
+                    role = 'owner';
+                } else {
+                    // 2. Check if email is in any restaurant's waiters list
+                    const restsRef = db.collection('restaurants');
+                    // We need to query all restaurants that have this email in their 'waiters' array
+                    // Ensure the email is lowercase for comparison
+                    const emailToCheck = user.email ? user.email.toLowerCase() : '';
+                    if (emailToCheck) {
+                        const snapshot = await restsRef.where('waiters', 'array-contains', emailToCheck).get();
+                        if (!snapshot.empty) {
+                            role = 'waiter';
+                            restaurantId = snapshot.docs[0].id; // Assign to the first matching restaurant
+                        }
+                    }
+                }
+                
+                userData = {
+                    uid: user.uid,
+                    email: user.email || '',
+                    displayName: user.displayName || (user.email ? user.email.split('@')[0] : 'Usuario'),
+                    photoURL: user.photoURL || '',
+                    role: role,
+                    restaurantId: restaurantId,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                };
+                await userRef.set(userData);
+            }
+            
+            state.user = userData;
+            populateUserData();
+            routeUserByRole(userData.role);
+            
+            showToast('¡Bienvenido/a' + (userData.displayName ? ', ' + getFirstName(userData.displayName) : '') + '! 🎉');
+            
+        } catch(e) {
+            console.error("Error setting up user:", e);
+            showToast("Error conectando a la base de datos");
+            showScreen('screen-login', false);
+        }
     } else {
         state.user = null;
-        state.isFirstVisit = !localStorage.getItem('tb_visited');
-        showScreen('screen-login');
+        if (state.currentScreen !== 'screen-login') {
+            showScreen('screen-login', false);
+        }
+    }
+});
+
+function checkAuthState() {
+    // Just a fallback since onAuthStateChanged handles routing now
+    if (!auth.currentUser) {
+        showScreen('screen-login', false);
     }
 }
-
 function routeUserByRole(role) {
     if (role === 'owner') {
         showScreen('screen-owner-dashboard');
+        loadOwnerData(); // New function we'll create
     } else if (role === 'waiter') {
         showScreen('screen-waiter-dashboard');
+        loadWaiterData(); // New function we'll create
     } else {
         showScreen('screen-home'); // Client
+        loadClientData(); // New function we'll create
     }
 }
 
-// ---- Google Login (Mocked) ----
+// ============================================
+// LOGIN / LOGOUT
+// ============================================
+
 async function loginWithGoogle() {
+    const provider = new firebase.auth.GoogleAuthProvider();
     try {
-        showToast('Iniciando sesión...');
-        await new Promise(r => setTimeout(r, 800));
-
-        let role = 'client';
-        if (window.location.hash === '#owner') role = 'owner';
-        else if (window.location.hash === '#mozo') role = 'waiter';
-
-        // Same check if google user is supposedly the waiter
-        const email = 'facundo@test.com';
-        const savedWaiters = JSON.parse(localStorage.getItem('tb_mock_waiters') || '["mozo1@bar.com", "mozo@bar.com"]');
-        if (savedWaiters.includes(email)) role = 'waiter';
-
-        const mockUser = {
-            uid: 'test-user-123',
-            displayName: 'Facundo',
-            email: email,
-            photoURL: '',
-            role: role
-        };
-
-        state.user = mockUser;
-        localStorage.setItem('tb_visited', 'true');
-        localStorage.setItem('tb_mock_logged_in', 'true');
-        localStorage.setItem('tb_mock_email', email);
-
-        routeUserByRole(role);
-        populateUserData(mockUser);
-        showToast('¡Bienvenido/a, ' + getFirstName(mockUser.displayName) + '! 🎉');
+        await auth.signInWithPopup(provider);
+        // onAuthStateChanged will handle routing
     } catch (error) {
-        console.error('Login error:', error);
-        showToast('Error al iniciar sesión');
+        console.error("Google login error:", error);
+        showToast('Error al iniciar sesión: ' + error.message);
     }
 }
 
-// ---- Email Login (Mocked) ----
 async function loginWithEmail() {
-    const input = document.getElementById('input-login-email');
-    const email = input?.value?.toLowerCase()?.trim();
-
-    if (!email || !email.includes('@')) {
-        return showToast('Ingresá un email válido');
+    const emailInput = document.getElementById('input-login-email');
+    const email = emailInput?.value?.toLowerCase()?.trim();
+    
+    // Instead of password for MVP, we'll try to use a default password if they don't have one, 
+    // or we tell them to use Google. Let's force them to use Google for now to avoid Email/Password setup issues.
+    if (!email) {
+        showToast('Por favor, ingresá un correo válido.');
+        return;
     }
-
+    showToast('Iniciando sesión con email...');
+    
+    // For MVP phase 2, we strongly recommend Google auth, but we can implement Email/Password if the user has it enabled in Firebase.
     try {
-        showToast('Iniciando sesión...');
-        await new Promise(r => setTimeout(r, 800));
-
-        let role = 'client';
-        if (window.location.hash === '#owner') role = 'owner';
-        else if (window.location.hash === '#mozo') role = 'waiter';
-
-        // Check if email belongs to a Waiter
-        const savedWaiters = JSON.parse(localStorage.getItem('tb_mock_waiters') || '["mozo1@bar.com", "mozo@bar.com"]');
-        if (savedWaiters.includes(email)) {
-            role = 'waiter';
+        const password = "password123"; // Dummy password for rapid test accounts
+        try {
+            await auth.signInWithEmailAndPassword(email, password);
+        } catch(e) {
+            if (e.code === 'auth/user-not-found') {
+                await auth.createUserWithEmailAndPassword(email, password);
+            } else {
+                throw e;
+            }
         }
-
-        const mockUser = {
-            uid: 'test-user-' + Date.now(),
-            displayName: email.split('@')[0],
-            email: email,
-            photoURL: '',
-            role: role
-        };
-
-        state.user = mockUser;
-        localStorage.setItem('tb_visited', 'true');
-        localStorage.setItem('tb_mock_logged_in', 'true');
-        localStorage.setItem('tb_mock_email', email);
-
-        routeUserByRole(role);
-        populateUserData(mockUser);
-        showToast('¡Bienvenido/a, ' + getFirstName(mockUser.displayName) + '! 🎉');
     } catch (error) {
-        console.error('Login error:', error);
-        showToast('Error al iniciar sesión');
+        console.error("Email login error:", error);
+        if (error.code === 'auth/operation-not-allowed') {
+            showToast('Habilitá "Correo/Contraseña" en Firebase Auth.');
+        } else {
+            showToast('Error: ' + error.message);
+        }
     }
 }
 
-// ---- Logout (Mocked) ----
 async function logout() {
     try {
-        localStorage.removeItem('tb_mock_logged_in');
-        // NOT clearing the role or visited flag to remember who they were,, or maybe we do.
-        localStorage.removeItem('tb_mock_role');
-        
-        state.user = null;
-        state.navigationHistory = [];
         showScreen('screen-login', false);
         showToast('Sesión cerrada');
     } catch (error) {
@@ -343,65 +345,132 @@ function enableDarkMode(enable) {
 }
 
 // ============================================
-// ROOM MANAGEMENT (UI Only - Phase 1)
+// ROOM & REALTIME MANAGEMENT
 // ============================================
 
+let roomUnsubscribe = null;
+let ordersUnsubscribe = null;
+
 function createRoom() {
-    const nameInput = document.getElementById('input-restaurant-name');
-    const tableInput = document.getElementById('input-table-number');
-
-    const name = nameInput?.value?.trim();
-    if (!name) {
-        showToast('Ingresá el nombre del restaurante');
-        nameInput?.focus();
-        return;
-    }
-
-    // Generate room code
-    const code = generateRoomCode();
-    const table = tableInput?.value?.trim() || '';
-
-    // For now, just show the code and navigate
-    showToast('¡Sala creada! Código: ' + code);
-
-    // TODO: Save to Firestore in Phase 2
-    // For demo: show room screen
-    const roomName = document.getElementById('room-name');
-    const roomCode = document.getElementById('room-code-display');
-    if (roomName) roomName.textContent = name;
-    if (roomCode) roomCode.textContent = 'Código: ' + code;
-
-    // Clear form
-    nameInput.value = '';
-    if (tableInput) tableInput.value = '';
-
-    // Load demo menu
-    loadDemoMenu();
-    showScreen('screen-room');
+    // Deprecated for Phase 2: Waiters create rooms instead of clients
+    showToast('Usá la cuenta de Mozo para crear mesas.');
 }
 
-function joinRoom() {
+async function joinRoom() {
     const codeInput = document.getElementById('input-room-code');
     const code = codeInput?.value?.trim()?.toUpperCase();
 
-    if (!code || code.length < 4) {
-        showToast('Ingresá un código válido');
+    if (!code || code.length !== 6) {
+        showToast('Ingresá un código válido (6 caracteres)');
         return;
     }
 
-    // TODO: Validate with Firestore in Phase 2
-    showToast('Conectando a sala ' + code + '...');
+    showToast('Buscando mesa ' + code + '...');
 
-    const roomName = document.getElementById('room-name');
-    const roomCode = document.getElementById('room-code-display');
-    if (roomName) roomName.textContent = 'Sala';
-    if (roomCode) roomCode.textContent = 'Código: ' + code;
+    try {
+        const docRef = db.collection('rooms').doc(code);
+        const doc = await docRef.get();
+        if (doc.exists && doc.data().status === 'active') {
+            const roomData = doc.data();
+            
+            // Add client to participants
+            const participant = {
+                uid: state.user.uid,
+                displayName: state.user.displayName,
+                photoURL: state.user.photoURL || ''
+            };
+            
+            const exists = roomData.participants.find(p => p.uid === state.user.uid);
+            if (!exists) {
+                await docRef.update({
+                    participants: firebase.firestore.FieldValue.arrayUnion(participant)
+                });
+                roomData.participants.push(participant);
+            }
+            
+            state.currentRoom = roomData;
+            
+            const roomName = document.getElementById('room-name');
+            const roomCode = document.getElementById('room-code-display');
+            if (roomName) roomName.textContent = state.currentRoom.table;
+            if (roomCode) roomCode.textContent = 'Código: ' + code;
+            
+            codeInput.value = '';
+            
+            // Load real menu from Restaurant
+            await loadRestaurantMenu(state.currentRoom.restaurantId);
+            
+            showScreen('screen-room');
+            listenToRoom(code);
+        } else {
+            showToast('Mesa no encontrada o está cerrada');
+            codeInput.focus();
+        }
+    } catch(e) {
+        console.error(e);
+        showToast('Error al buscar mesa');
+    }
+}
 
-    // Clear input
-    if (codeInput) codeInput.value = '';
+function listenToRoom(code) {
+    if (roomUnsubscribe) roomUnsubscribe();
+    if (ordersUnsubscribe) ordersUnsubscribe();
+    
+    // Listen for participants
+    roomUnsubscribe = db.collection('rooms').doc(code).onSnapshot(doc => {
+        if (doc.exists) {
+            state.currentRoom = doc.data();
+            renderParticipantsUI();
+        } else {
+            showToast('La mesa ha sido cerrada por el mozo');
+            goHome(); // return safely
+        }
+    });
 
-    loadDemoMenu();
-    showScreen('screen-room');
+    // Listen for orders
+    ordersUnsubscribe = db.collection('rooms').doc(code).collection('orders').onSnapshot(snapshot => {
+        const orders = [];
+        snapshot.forEach(d => orders.push({ id: d.id, ...d.data() }));
+        state.currentOrders = orders;
+        renderRealtimeOrders();
+        updateOrderBadge(); // Client's FAB
+    });
+}
+
+function renderParticipantsUI() {
+    const list = document.getElementById('participants-list');
+    if (!list || !state.currentRoom) return;
+    
+    list.innerHTML = state.currentRoom.participants.map(p => `
+        <div class="participant-avatar" title="${p.displayName}">
+            ${p.photoURL ? `<img src="${p.photoURL}" alt="${p.displayName}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">` : getInitials(p.displayName)}
+        </div>
+    `).join('');
+}
+
+function getInitials(name) {
+    if (!name) return '?';
+    return name.substring(0, 2).toUpperCase();
+}
+
+function renderRealtimeOrders() {} // implementation placeholder
+
+async function loadRestaurantMenu(restId) {
+    try {
+        const doc = await db.collection('restaurants').doc(restId).get();
+        if (doc.exists) {
+            state.currentMenu = doc.data().menu || [];
+            
+            const cats = new Set();
+            state.currentMenu.forEach(i => cats.add(i.category || 'Otros'));
+            state.currentCategories = Array.from(cats);
+            
+            renderRealCategories();
+            if (state.currentCategories.length > 0) {
+                renderRealMenuItems(state.currentCategories[0]);
+            }
+        }
+    } catch(e) { console.error(e); }
 }
 
 function generateRoomCode() {
@@ -414,65 +483,46 @@ function generateRoomCode() {
 }
 
 // ============================================
-// DEMO MENU (Phase 1 placeholder)
+// MENU RENDERING (Firestore)
 // ============================================
 
-const DEMO_MENU = {
-    categories: ['🍔 Platos', '🥤 Bebidas', '🍰 Postres'],
-    items: [
-        { name: 'Hamburguesa Clásica', price: 4500, desc: 'Carne, lechuga, tomate, queso', category: 0 },
-        { name: 'Pizza Napolitana', price: 5200, desc: 'Mozzarella, tomate, albahaca', category: 0 },
-        { name: 'Ensalada César', price: 3800, desc: 'Lechuga, parmesano, croutons', category: 0 },
-        { name: 'Milanesa Napolitana', price: 5500, desc: 'Con papas fritas', category: 0 },
-        { name: 'Coca-Cola', price: 1200, desc: '500ml', category: 1 },
-        { name: 'Agua Mineral', price: 800, desc: '500ml', category: 1 },
-        { name: 'Cerveza Artesanal', price: 2500, desc: 'Pinta IPA', category: 1 },
-        { name: 'Limonada', price: 1500, desc: 'Con menta y jengibre', category: 1 },
-        { name: 'Tiramisú', price: 3200, desc: 'Clásico italiano', category: 2 },
-        { name: 'Flan Casero', price: 2800, desc: 'Con dulce de leche', category: 2 },
-        { name: 'Brownie', price: 3000, desc: 'Con helado de vainilla', category: 2 }
-    ]
-};
-
-let selectedCategory = 0;
+let selectedCategory = null;
 let orderItems = [];
 let currentModalItem = null;
 let currentQty = 1;
 
-function loadDemoMenu() {
-    renderCategories();
-    renderMenuItems(0);
-    updateOrderBadge();
-}
-
-function renderCategories() {
+function renderRealCategories() {
     const container = document.getElementById('menu-categories');
-    if (!container) return;
+    if (!container || !state.currentCategories) return;
 
-    container.innerHTML = DEMO_MENU.categories.map((cat, i) =>
-        `<button class="category-tab ${i === selectedCategory ? 'active' : ''}" data-category="${i}">${cat}</button>`
+    if (!selectedCategory && state.currentCategories.length > 0) {
+        selectedCategory = state.currentCategories[0];
+    }
+
+    container.innerHTML = state.currentCategories.map(cat =>
+        `<button class="category-tab ${cat === selectedCategory ? 'active' : ''}" data-category="${cat}">${cat}</button>`
     ).join('');
 
     container.querySelectorAll('.category-tab').forEach(tab => {
         tab.addEventListener('click', () => {
-            selectedCategory = parseInt(tab.dataset.category);
-            renderCategories();
-            renderMenuItems(selectedCategory);
+            selectedCategory = tab.dataset.category;
+            renderRealCategories();
+            renderRealMenuItems(selectedCategory);
         });
     });
 }
 
-function renderMenuItems(categoryIndex) {
+function renderRealMenuItems(category) {
     const container = document.getElementById('menu-items');
-    if (!container) return;
+    if (!container || !state.currentMenu) return;
 
-    const items = DEMO_MENU.items.filter(item => item.category === categoryIndex);
+    const items = state.currentMenu.filter(item => item.category === category);
 
-    container.innerHTML = items.map((item, i) =>
-        `<div class="menu-card" data-item-index="${DEMO_MENU.items.indexOf(item)}">
+    container.innerHTML = items.map(item =>
+        `<div class="menu-card" data-item-id="${item.id}">
             <div class="menu-card-info">
                 <h4 class="menu-card-name">${item.name}</h4>
-                <p class="menu-card-desc">${item.desc}</p>
+                <p class="menu-card-desc">${item.category}</p>
                 <span class="menu-card-price">$${item.price.toLocaleString('es-AR')}</span>
             </div>
             <button class="menu-card-add" aria-label="Agregar ${item.name}">
@@ -487,10 +537,45 @@ function renderMenuItems(categoryIndex) {
         btn.addEventListener('click', (e) => {
             e.stopPropagation();
             const card = btn.closest('.menu-card');
-            const itemIndex = parseInt(card.dataset.itemIndex);
-            openAddItemModal(DEMO_MENU.items[itemIndex]);
+            const itemId = card.dataset.itemId;
+            const item = state.currentMenu.find(i => i.id === itemId);
+            openAddItemModal(item);
         });
     });
+}
+
+function renderRealtimeOrders() {
+    const container = document.getElementById('order-items-list-display'); 
+    const totalDisplay = document.getElementById('room-total-display');
+    if (!container || !state.currentOrders) return;
+    
+    if (state.currentOrders.length === 0) {
+        container.innerHTML = '<p style="text-align:center;color:var(--text-sec);padding:20px;font-size:12px;">No hay pedidos en curso</p>';
+        if (totalDisplay) totalDisplay.textContent = '$0';
+        return;
+    }
+
+    let total = 0;
+    container.innerHTML = state.currentOrders.sort((a,b) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0)).map(order => {
+        const itemTotal = order.price * order.qty;
+        total += itemTotal;
+        return `
+            <div style="padding:12px;background:var(--bg-main);border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
+                <div style="flex:1;">
+                    <h4 style="margin:0;font-size:13px;color:var(--text-main);">${order.qty}x ${order.name}</h4>
+                    <div style="display:flex;gap:5px;align-items:center;margin-top:2px;">
+                        <span style="font-size:10px;padding:2px 6px;background:var(--bg-sec);border-radius:10px;color:var(--text-sec);">
+                            ${order.ordererName ? order.ordererName.split(' ')[0] : 'Alguien'}
+                        </span>
+                        ${order.sharedWith.length > 1 ? '<span style="font-size:10px;color:var(--primary);">👥 Splitted</span>' : ''}
+                    </div>
+                </div>
+                <strong style="font-size:13px;color:var(--text-main);">$${itemTotal.toLocaleString('es-AR')}</strong>
+            </div>
+        `;
+    }).join('');
+
+    if (totalDisplay) totalDisplay.textContent = '$' + total.toLocaleString('es-AR');
 }
 
 // ============================================
@@ -522,20 +607,13 @@ function openAddItemModal(item) {
     const splitSection = document.getElementById('split-section');
     if (splitSection) splitSection.style.display = 'none';
 
-    // Populate split participants mock
+    // Populate split participants from Realtime state
     const participantsContainer = document.getElementById('split-participants');
-    if (participantsContainer) {
-        // Mock active participants in the room
-        const mockParticipants = [
-            { uid: 'test-user-123', name: 'Yo (' + getFirstName(state.user?.displayName || 'Cliente') + ')' },
-            { uid: 'friend-1', name: 'Juan C.' },
-            { uid: 'friend-2', name: 'María P.' }
-        ];
-        
-        participantsContainer.innerHTML = mockParticipants.map(p => `
+    if (participantsContainer && state.currentRoom) {
+        participantsContainer.innerHTML = state.currentRoom.participants.map(p => `
             <label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:8px;background:var(--bg-main);border-radius:8px;">
-                <input type="checkbox" class="split-checkbox" value="${p.uid}" ${p.uid === 'test-user-123' ? 'checked disabled' : ''}>
-                <span>${p.name}</span>
+                <input type="checkbox" class="split-checkbox" value="${p.uid}" ${p.uid === state.user.uid ? 'checked disabled' : ''}>
+                <span>${p.uid === state.user.uid ? 'Yo (' + getFirstName(p.displayName) + ')' : p.displayName}</span>
             </label>
         `).join('');
     }
@@ -549,30 +627,19 @@ function closeAddItemModal() {
     currentModalItem = null;
 }
 
-function updateQty(delta) {
-    currentQty = Math.max(1, Math.min(20, currentQty + delta));
-    const qtyDisplay = document.getElementById('qty-value');
-    const total = document.getElementById('modal-total');
-
-    if (qtyDisplay) qtyDisplay.textContent = currentQty;
-    if (total && currentModalItem) {
-        total.textContent = '$' + (currentModalItem.price * currentQty).toLocaleString('es-AR');
-    }
-}
-
 function addToOrder() {
     if (!currentModalItem) return;
 
     // Check who it's shared with
     const activePayer = document.querySelector('.payer-option.active')?.dataset.payer;
-    let sharedWith = [state.user?.uid || 'test-user-123'];
+    let sharedWith = [state.user?.uid]; // Use real UID
     
     if (activePayer === 'split') {
         const checkboxes = document.querySelectorAll('.split-checkbox:checked');
         sharedWith = Array.from(checkboxes).map(cb => cb.value);
     }
 
-    const itemHash = currentModalItem.name + '-' + sharedWith.sort().join(',');
+    const itemHash = currentModalItem.id + '-' + sharedWith.sort().join(',');
     const existingIndex = orderItems.findIndex(item => item.hash === itemHash);
     
     if (existingIndex >= 0) {
@@ -580,27 +647,62 @@ function addToOrder() {
     } else {
         orderItems.push({
             hash: itemHash,
+            id: currentModalItem.id, // item id
             name: currentModalItem.name,
             price: currentModalItem.price,
             qty: currentQty,
-            desc: currentModalItem.desc,
             sharedWith: sharedWith
         });
     }
 
     updateOrderBadge();
     closeAddItemModal();
-    showToast(currentQty + 'x ' + currentModalItem.name + ' agregado');
+    showToast(currentQty + 'x ' + currentModalItem.name + ' en el carrito');
+}
+
+async function confirmOrder() {
+    if (orderItems.length === 0) return showToast('Nada para confirmar');
+    if (!state.currentRoom?.code) return showToast('No hay una mesa activa');
+
+    showToast('Enviando pedido...');
+    try {
+        const roomCode = state.currentRoom.code;
+        const ordersRef = db.collection('rooms').doc(roomCode).collection('orders');
+        
+        // Push each item as a separate document for better real-time updates / logic later
+        const batch = db.batch();
+        
+        orderItems.forEach(item => {
+            const newOrderRef = ordersRef.doc();
+            batch.set(newOrderRef, {
+                ...item,
+                orderedBy: state.user.uid,
+                ordererName: state.user.displayName,
+                timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+                status: 'pending' // Or 'confirmed'
+            });
+        });
+
+        await batch.commit();
+
+        showToast('¡Pedido confirmado! 🎉');
+        orderItems = [];
+        updateOrderBadge();
+        goBack(); // Return to room menu
+    } catch(e) {
+        console.error("Error confirming order:", e);
+        showToast('Error al enviar el pedido');
+    }
 }
 
 function updateOrderBadge() {
     const badge = document.getElementById('order-count');
-    const totalItems = orderItems.reduce((sum, item) => sum + item.qty, 0);
-    if (badge) {
-        badge.textContent = totalItems;
-        badge.style.display = totalItems > 0 ? 'flex' : 'none';
-    }
+    if (!badge) return;
+    const count = orderItems.reduce((sum, item) => sum + item.qty, 0);
+    badge.textContent = count;
+    badge.parentElement.style.display = count > 0 ? 'flex' : 'none';
 }
+
 
 function showOrderSummary() {
     const container = document.getElementById('order-items-list');
@@ -848,38 +950,130 @@ function setRole(role) {
 // OWNER DASHBOARD LOGIC
 // ============================================
 
-function handleOwnerCreateRest() {
-    const input = document.getElementById('input-owner-restaurant-name');
-    if (!input?.value) return showToast('Ingresá el nombre');
-    showToast('Restaurante creado: ' + input.value);
-    document.getElementById('owner-setup').style.display = 'none';
-    document.getElementById('owner-manage-waiters').style.display = 'block';
+async function loadWaiterData() {
+    const list = document.getElementById('waiter-tables-list');
+    if (!list || !state.user || !state.user.uid) return;
+
+    try {
+        const query = db.collection('rooms')
+                        .where('waiterId', '==', state.user.uid)
+                        .where('status', '==', 'active')
+                        .orderBy('createdAt', 'desc');
+                        
+        query.onSnapshot(snapshot => {
+            if (snapshot.empty) {
+                list.innerHTML = `<div class="empty-state" style="grid-column: 1 / -1;"><div class="empty-icon">🍽️</div><p class="empty-text">No tenés mesas activas</p><p class="empty-sub">Creá una mesa nueva arriba</p></div>`;
+            } else {
+                list.innerHTML = '';
+                snapshot.forEach(doc => {
+                    const room = doc.data();
+                    list.innerHTML += `<div class="room-card" style="padding:24px 15px; background:var(--card-bg); border-radius:16px; display:flex; flex-direction:column; justify-content:center; align-items:center; text-align:center; box-shadow:0 8px 16px rgba(0,0,0,0.05); cursor:pointer; transition: transform 0.2s ease;" onclick="enterWaiterRoom('${room.code}')">
+                        <h4 style="margin:0 0 8px 0; font-size:22px; color:var(--text-main); font-weight:800;">${room.table}</h4>
+                        <p style="margin:0; font-size:13px; color:var(--text-sec); letter-spacing:0.5px;">Cód: <strong style="color:var(--primary);">${room.code}</strong></p>
+                    </div>`;
+                });
+            }
+        });
+    } catch(e) {
+        console.error("Error loading waiter tables:", e);
+        // Requires index for waiterId, status, createdAt! We might get a perm error in console. If so we can remove orderBy.
+    }
+}
+function loadClientData() {}
+
+async function loadOwnerData() {
+    if (!state.user) return;
+    
+    if (state.user.restaurantId) {
+        // Skip setup steps if already created
+        document.getElementById('owner-setup').style.display = 'none';
+        document.getElementById('owner-manage-waiters').style.display = 'none';
+        document.getElementById('owner-greeting').textContent = 'Tu Restaurante está activo';
+        
+        const exist = document.getElementById('owner-active-card');
+        if (!exist) {
+            document.getElementById('owner-setup').insertAdjacentHTML('afterend', `
+                <div class="settings-card" id="owner-active-card" style="margin-bottom:20px;text-align:center;">
+                    <div style="font-size:40px;margin-bottom:10px;">🏪</div>
+                    <h3 id="owner-rest-name-display">Cargando...</h3>
+                    <p style="color:var(--text-sec);" id="owner-rest-info">Tus mozos ya pueden crear mesas.</p>
+                </div>
+            `);
+        }
+        
+        try {
+            const restDoc = await db.collection('restaurants').doc(state.user.restaurantId).get();
+            if (restDoc.exists) {
+                const data = restDoc.data();
+                const title = document.getElementById('owner-rest-name-display');
+                if (title) title.textContent = data.name;
+                const info = document.getElementById('owner-rest-info');
+                if (info) info.textContent = `${data.waiters ? data.waiters.length : 0} mozos | ${data.menu ? data.menu.length : 0} items en menú`;
+            }
+        } catch(e) {
+            console.error("Error loading restaurant:", e);
+        }
+    } else {
+        document.getElementById('owner-setup').style.display = 'block';
+    }
 }
 
-function handleOwnerAddWaiter() {
+async function handleOwnerCreateRest() {
+    const input = document.getElementById('input-owner-restaurant-name');
+    const name = input?.value.trim();
+    if (!name) return showToast('Ingresá el nombre');
+    
+    const restData = {
+        name: name,
+        ownerId: state.user.uid,
+        waiters: [],
+        menu: [],
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    };
+    
+    try {
+        // 1. Create restaurant
+        const docRef = await db.collection('restaurants').add(restData);
+        // 2. Link User
+        await db.collection('users').doc(state.user.uid).update({ restaurantId: docRef.id });
+        state.user.restaurantId = docRef.id;
+        
+        showToast('Restaurante creado: ' + name);
+        document.getElementById('owner-setup').style.display = 'none';
+        document.getElementById('owner-manage-waiters').style.display = 'block';
+    } catch(e) {
+        console.error(e);
+        showToast('Error al crear restaurante');
+    }
+}
+
+async function handleOwnerAddWaiter() {
     const input = document.getElementById('input-waiter-email');
     if (!input?.value || !input.value.includes('@')) return showToast('Email inválido');
     
     const email = input.value.toLowerCase().trim();
+    if (!state.user.restaurantId) return showToast('No hay restaurante creado');
     
-    // Save to localStorage so we can verify waiters
-    const savedWaiters = JSON.parse(localStorage.getItem('tb_mock_waiters') || '[]');
-    if (!savedWaiters.includes(email)) {
-        savedWaiters.push(email);
-        localStorage.setItem('tb_mock_waiters', JSON.stringify(savedWaiters));
+    try {
+        await db.collection('restaurants').doc(state.user.restaurantId).update({
+            waiters: firebase.firestore.FieldValue.arrayUnion(email)
+        });
+        
+        const list = document.getElementById('waiters-list');
+        list.innerHTML += `<div style="padding:10px;background:var(--bg-sec);border-radius:8px;display:flex;justify-content:space-between;margin-top:10px;">
+            <span>${email}</span>
+            <span style="color:var(--text-sec);font-size:12px;">Mozo</span>
+        </div>`;
+        
+        showToast('Mozo invitado');
+        input.value = '';
+        
+        const continueBtn = document.getElementById('btn-owner-continue-menu');
+        if (continueBtn) continueBtn.style.display = 'block';
+    } catch(e) {
+        console.error(e);
+        showToast('Error al agregar mozo');
     }
-
-    const list = document.getElementById('waiters-list');
-    list.innerHTML += `<div style="padding:10px;background:var(--bg-sec);border-radius:8px;display:flex;justify-content:space-between;margin-top:10px;">
-        <span>${email}</span>
-        <span style="color:var(--text-sec);font-size:12px;">Mozo</span>
-    </div>`;
-    
-    showToast('Mozo invitado');
-    input.value = '';
-
-    const continueBtn = document.getElementById('btn-owner-continue-menu');
-    if (continueBtn) continueBtn.style.display = 'block';
 }
 
 function handleOwnerContinueMenu() {
@@ -887,25 +1081,42 @@ function handleOwnerContinueMenu() {
     document.getElementById('owner-manage-menu').style.display = 'block';
 }
 
-function handleOwnerAddMenuItem() {
+async function handleOwnerAddMenuItem() {
     const nameInput = document.getElementById('input-menu-name');
     const priceInput = document.getElementById('input-menu-price');
     const catInput = document.getElementById('input-menu-category');
 
     if (!nameInput.value || !priceInput.value) return showToast('Completá nombre y precio');
+    if (!state.user.restaurantId) return showToast('No hay restaurante creado');
+    
+    const newItem = {
+        id: 'item_' + Date.now(),
+        name: nameInput.value.trim(),
+        price: parseFloat(priceInput.value),
+        category: catInput.value
+    };
 
-    const list = document.getElementById('menu-items-list');
-    list.innerHTML += `<div style="padding:12px;background:var(--bg-sec);border-radius:8px;display:flex;justify-content:space-between;align-items:center;margin-top:10px;">
-        <div>
-            <h4 style="margin:0;font-size:14px;color:var(--text-main);">${nameInput.value}</h4>
-            <p style="margin:2px 0 0 0;font-size:12px;color:var(--text-sec);">${catInput.value}</p>
-        </div>
-        <strong style="color:var(--text-main);">$${priceInput.value}</strong>
-    </div>`;
+    try {
+        await db.collection('restaurants').doc(state.user.restaurantId).update({
+            menu: firebase.firestore.FieldValue.arrayUnion(newItem)
+        });
+        
+        const list = document.getElementById('menu-items-list');
+        list.innerHTML += `<div style="padding:12px;background:var(--bg-sec);border-radius:8px;display:flex;justify-content:space-between;align-items:center;margin-top:10px;">
+            <div>
+                <h4 style="margin:0;font-size:14px;color:var(--text-main);">${newItem.name}</h4>
+                <p style="margin:2px 0 0 0;font-size:12px;color:var(--text-sec);">${newItem.category}</p>
+            </div>
+            <strong style="color:var(--text-main);">$${newItem.price.toFixed(2)}</strong>
+        </div>`;
 
-    showToast('Item agregado al menú');
-    nameInput.value = '';
-    priceInput.value = '';
+        showToast('Item agregado al menú');
+        nameInput.value = '';
+        priceInput.value = '';
+    } catch (e) {
+        console.error(e);
+        showToast('Error agregando al menú');
+    }
 }
 
 function handleOwnerFinishSetup() {
@@ -914,8 +1125,8 @@ function handleOwnerFinishSetup() {
     document.getElementById('owner-greeting').textContent = 'Tu Restaurante está activo';
     
     // Create a visual summary
-    document.getElementById('owner-setup').insertAdjacentHTML('afterend', `
-        <div class="settings-card" style="margin-bottom:20px;text-align:center;">
+    document.getElementById('owner-manage-menu').insertAdjacentHTML('afterend', `
+        <div class="settings-card" id="owner-active-card" style="margin-bottom:20px;text-align:center;">
             <div style="font-size:40px;margin-bottom:10px;">🏪</div>
             <h3>¡Todo listo!</h3>
             <p style="color:var(--text-sec);">Tus mozos ya pueden crear mesas y los clientes ya pueden ver tu menú.</p>
@@ -927,37 +1138,55 @@ function handleOwnerFinishSetup() {
 // WAITER DASHBOARD LOGIC
 // ============================================
 
-function handleWaiterCreateTable() {
+async function handleWaiterCreateTable() {
+    if (!state.user || !state.user.restaurantId) {
+        return showToast('No estás asignado a un restaurante');
+    }
+
     const code = generateRoomCode();
+    const tableNumber = 'Mesa ' + (Math.floor(Math.random() * 20) + 1);
     
-    state.currentRoom = {
+    const newRoom = {
         code: code,
-        restaurant: 'Tu Restaurante',
-        table: 'Mesa ' + (Math.floor(Math.random() * 20) + 1),
-        items: []
+        restaurantId: state.user.restaurantId,
+        table: tableNumber,
+        waiterId: state.user.uid,
+        status: 'active',
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+        participants: []
     };
 
-    const list = document.getElementById('waiter-tables-list');
-    const empty = list.querySelector('.empty-state');
-    if (empty) empty.remove();
+    try {
+        await db.collection('rooms').doc(code).set(newRoom);
+        showToast('Mesa creada. Código: ' + code);
+        enterWaiterRoom(code);
+    } catch(e) {
+        console.error("Error creating table:", e);
+        showToast('Error al crear la mesa');
+    }
+}
 
-    list.innerHTML += `<div class="room-card" style="padding:15px;background:var(--card-bg);border-radius:12px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;">
-        <div>
-            <h4 style="margin:0;">${state.currentRoom.table}</h4>
-            <p style="margin:4px 0 0 0;font-size:14px;color:var(--text-sec);">Código: <strong style="color:var(--primary);font-size:16px;">${code}</strong></p>
-        </div>
-        <button class="btn btn-primary" style="padding:6px 12px;font-size:12px;" onclick="showScreen('screen-room')">Entrar</button>
-    </div>`;
-
-    showToast('Mesa creada. Código: ' + code);
-
-    // Populate room view
-    const roomName = document.getElementById('room-name');
-    const roomCode = document.getElementById('room-code-display');
-    if (roomName) roomName.textContent = state.currentRoom.restaurant + ' - ' + state.currentRoom.table;
-    if (roomCode) roomCode.textContent = 'Código: ' + code;
-    
-    showScreen('screen-room');
+async function enterWaiterRoom(code) {
+    try {
+        const doc = await db.collection('rooms').doc(code).get();
+        if (doc.exists) {
+            state.currentRoom = doc.data();
+            
+            const roomName = document.getElementById('room-name');
+            const roomCode = document.getElementById('room-code-display');
+            if (roomName) roomName.textContent = state.currentRoom.table;
+            if (roomCode) roomCode.textContent = 'Código: ' + code;
+            
+            // Waiters also see the menu
+            await loadRestaurantMenu(state.currentRoom.restaurantId);
+            
+            showScreen('screen-room');
+            listenToRoom(code);
+        }
+    } catch(e) {
+        console.error(e);
+        showToast('Error al entrar a la mesa');
+    }
 }
 
 // ============================================
@@ -1037,12 +1266,7 @@ function initEventListeners() {
     });
 
     // --- Confirm Order ---
-    document.getElementById('btn-confirm-order')?.addEventListener('click', () => {
-        showToast('¡Pedido confirmado! 🎉');
-        orderItems = [];
-        updateOrderBadge();
-        goBack();
-    });
+    document.getElementById('btn-confirm-order')?.addEventListener('click', confirmOrder);
 
     // --- Confirm Modal ---
     document.getElementById('modal-confirm-cancel')?.addEventListener('click', closeConfirm);
