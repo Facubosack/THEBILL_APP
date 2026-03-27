@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="es-AR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#F5A623">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="The Bill">
+    <meta name="description" content="The Bill - Dividí la cuenta fácil. Creá salas, elegí del menú y dividí el pago sin complicaciones.">
+
+    <title>The Bill</title>
+
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%23F5A623'/><text x='50' y='68' font-size='50' text-anchor='middle' fill='white' font-family='Arial' font-weight='bold'>$</text></svg>">
+    <link rel="apple-touch-icon" href="icon-192.png">
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <!-- Styles -->
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+    <!-- ==================== LOADING SCREEN ==================== -->
+    <div class="screen active" id="screen-loading">
+        <div class="loading-container">
+            <div class="loading-logo">
+                <div class="loading-icon">
+                    <svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <rect x="15" y="5" width="50" height="70" rx="6" fill="#F5A623" opacity="0.15"/>
+                        <rect x="18" y="8" width="44" height="64" rx="4" stroke="#F5A623" stroke-width="3" fill="none"/>
+                        <line x1="26" y1="22" x2="54" y2="22" stroke="#F5A623" stroke-width="2" stroke-linecap="round"/>
+                        <line x1="26" y1="30" x2="48" y2="30" stroke="#F5A623" stroke-width="2" stroke-linecap="round" opacity="0.7"/>
+                        <line x1="26" y1="38" x2="52" y2="38" stroke="#F5A623" stroke-width="2" stroke-linecap="round" opacity="0.5"/>
+                        <line x1="26" y1="46" x2="46" y2="46" stroke="#F5A623" stroke-width="2" stroke-linecap="round" opacity="0.7"/>
+                        <line x1="30" y1="56" x2="50" y2="56" stroke="#F5A623" stroke-width="3" stroke-linecap="round"/>
+                    </svg>
+                </div>
+                <h1 class="loading-title">The Bill</h1>
+                <p class="loading-subtitle">Dividí la cuenta fácil</p>
+            </div>
+            <div class="loading-spinner">
+                <div class="spinner-dot"></div>
+                <div class="spinner-dot"></div>
+                <div class="spinner-dot"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== LOGIN SCREEN ==================== -->
+    <div class="screen" id="screen-login">
+        <div class="login-container">
+            <div class="login-hero">
+                <div class="login-logo-icon">
+                    <svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <rect x="15" y="5" width="50" height="70" rx="6" fill="#F5A623" opacity="0.15"/>
+                        <rect x="18" y="8" width="44" height="64" rx="4" stroke="#F5A623" stroke-width="3" fill="none"/>
+                        <line x1="26" y1="22" x2="54" y2="22" stroke="#F5A623" stroke-width="2" stroke-linecap="round"/>
+                        <line x1="26" y1="30" x2="48" y2="30" stroke="#F5A623" stroke-width="2" stroke-linecap="round" opacity="0.7"/>
+                        <line x1="26" y1="38" x2="52" y2="38" stroke="#F5A623" stroke-width="2" stroke-linecap="round" opacity="0.5"/>
+                        <line x1="26" y1="46" x2="46" y2="46" stroke="#F5A623" stroke-width="2" stroke-linecap="round" opacity="0.7"/>
+                        <line x1="30" y1="56" x2="50" y2="56" stroke="#F5A623" stroke-width="3" stroke-linecap="round"/>
+                    </svg>
+                </div>
+                <h1 class="login-title">The Bill</h1>
+                <p class="login-tagline">Dividí la cuenta sin complicaciones.<br>Elegí, pagá y disfrutá.</p>
+            </div>
+
+            <div class="login-features">
+                <div class="login-feature">
+                    <span class="login-feature-icon">🍽️</span>
+                    <span>Escaneá el menú del lugar</span>
+                </div>
+                <div class="login-feature">
+                    <span class="login-feature-icon">👥</span>
+                    <span>Compartí sala con tu grupo</span>
+                </div>
+                <div class="login-feature">
+                    <span class="login-feature-icon">💳</span>
+                    <span>Cada uno paga lo suyo</span>
+                </div>
+            </div>
+
+            <div class="login-actions">
+                <button class="btn btn-google" id="btn-google-login">
+                    <svg viewBox="0 0 24 24" width="20" height="20" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/>
+                        <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                        <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+                        <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+                    </svg>
+                    <span>Continuar con Google</span>
+                </button>
+            </div>
+
+            <p class="login-terms">Al continuar, aceptás nuestros <a href="#">Términos</a> y <a href="#">Política de Privacidad</a></p>
+        </div>
+    </div>
+
+    <!-- ==================== HOME SCREEN ==================== -->
+    <div class="screen" id="screen-home">
+        <header class="app-header">
+            <div class="header-left">
+                <div class="header-logo-mini">
+                    <svg viewBox="0 0 80 80" width="28" height="28" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <rect x="15" y="5" width="50" height="70" rx="6" fill="#F5A623" opacity="0.15"/>
+                        <rect x="18" y="8" width="44" height="64" rx="4" stroke="#F5A623" stroke-width="3" fill="none"/>
+                        <line x1="30" y1="56" x2="50" y2="56" stroke="#F5A623" stroke-width="3" stroke-linecap="round"/>
+                    </svg>
+                </div>
+                <h2 class="header-title">The Bill</h2>
+            </div>
+            <div class="header-right">
+                <button class="header-btn" id="btn-notifications" aria-label="Notificaciones">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                        <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+                    </svg>
+                </button>
+                <button class="header-btn" id="btn-settings" aria-label="Configuración">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="3"/>
+                        <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+                    </svg>
+                </button>
+                <button class="header-avatar" id="btn-profile" aria-label="Perfil">
+                    <img id="user-avatar" src="" alt="Avatar" />
+                </button>
+            </div>
+        </header>
+
+        <main class="home-content">
+            <!-- Greeting -->
+            <div class="home-greeting">
+                <h1 id="greeting-text">¡Hola!</h1>
+                <p class="greeting-sub">¿Qué mesa compartís hoy?</p>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="quick-actions">
+                <button class="action-card action-create" id="btn-create-room">
+                    <div class="action-icon">
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="3" y="3" width="18" height="18" rx="2"/>
+                            <line x1="12" y1="8" x2="12" y2="16"/>
+                            <line x1="8" y1="12" x2="16" y2="12"/>
+                        </svg>
+                    </div>
+                    <span class="action-label">Crear Sala</span>
+                    <span class="action-desc">Armá una mesa nueva</span>
+                </button>
+                <button class="action-card action-join" id="btn-join-room">
+                    <div class="action-icon">
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/>
+                            <polyline points="10 17 15 12 10 7"/>
+                            <line x1="15" y1="12" x2="3" y2="12"/>
+                        </svg>
+                    </div>
+                    <span class="action-label">Unirme</span>
+                    <span class="action-desc">Ingresá con un código</span>
+                </button>
+            </div>
+
+            <!-- Recent Rooms -->
+            <div class="section-header">
+                <h3>Salas Recientes</h3>
+            </div>
+            <div class="rooms-list" id="rooms-list">
+                <div class="empty-state" id="empty-rooms">
+                    <div class="empty-icon">🧾</div>
+                    <p class="empty-text">No tenés salas recientes</p>
+                    <p class="empty-sub">Creá una nueva o unite con un código</p>
+                </div>
+            </div>
+        </main>
+
+        <!-- Bottom Nav -->
+        <nav class="bottom-nav">
+            <button class="nav-item active" data-screen="screen-home">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+                <span>Inicio</span>
+            </button>
+            <button class="nav-item" data-screen="screen-activity">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg>
+                <span>Actividad</span>
+            </button>
+            <button class="nav-item" id="nav-settings" data-screen="screen-settings">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                <span>Ajustes</span>
+            </button>
+        </nav>
+    </div>
+
+    <!-- ==================== ACTIVITY SCREEN ==================== -->
+    <div class="screen" id="screen-activity">
+        <header class="sub-header">
+            <button class="btn-back" id="btn-back-activity">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="15 18 9 12 15 6"/>
+                </svg>
+                <span>Atrás</span>
+            </button>
+            <h2 class="sub-header-title">Actividad</h2>
+            <div class="sub-header-spacer"></div>
+        </header>
+        <div class="activity-content">
+            <div class="empty-state">
+                <div class="empty-icon">📊</div>
+                <p class="empty-text">Todavía no hay actividad</p>
+                <p class="empty-sub">Tu historial de salas y pagos aparecerá acá</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== JOIN ROOM SCREEN ==================== -->
+    <div class="screen" id="screen-join-room">
+        <header class="sub-header">
+            <button class="btn-back" id="btn-back-join">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="15 18 9 12 15 6"/>
+                </svg>
+                <span>Atrás</span>
+            </button>
+            <h2 class="sub-header-title">Unirme a Sala</h2>
+            <div class="sub-header-spacer"></div>
+        </header>
+
+        <div class="join-content">
+            <div class="join-illustration">
+                <svg viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg" width="120" height="120">
+                    <circle cx="60" cy="60" r="50" fill="#F5A623" opacity="0.1"/>
+                    <rect x="35" y="30" width="50" height="60" rx="8" stroke="#F5A623" stroke-width="3" fill="white"/>
+                    <text x="60" y="67" text-anchor="middle" font-size="24" font-weight="bold" fill="#F5A623" font-family="Inter, sans-serif">#</text>
+                </svg>
+            </div>
+            <h3 class="join-title">Ingresá el código de la sala</h3>
+            <p class="join-desc">Pedile el código a quien creó la mesa</p>
+            <div class="code-input-group">
+                <input type="text" id="input-room-code" class="code-input" placeholder="Ej: ABC123" maxlength="6" autocomplete="off" spellcheck="false">
+            </div>
+            <button class="btn btn-primary btn-full" id="btn-submit-join" disabled>
+                Unirme a la sala
+            </button>
+        </div>
+    </div>
+
+    <!-- ==================== CREATE ROOM SCREEN ==================== -->
+    <div class="screen" id="screen-create-room">
+        <header class="sub-header">
+            <button class="btn-back" id="btn-back-create">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="15 18 9 12 15 6"/>
+                </svg>
+                <span>Atrás</span>
+            </button>
+            <h2 class="sub-header-title">Crear Sala</h2>
+            <div class="sub-header-spacer"></div>
+        </header>
+
+        <div class="create-content">
+            <div class="form-group">
+                <label class="form-label" for="input-restaurant-name">Nombre del restaurante / bar</label>
+                <input type="text" id="input-restaurant-name" class="form-input" placeholder="Ej: Bar de los Amigos">
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="input-table-number">Número de mesa (opcional)</label>
+                <input type="text" id="input-table-number" class="form-input" placeholder="Ej: Mesa 5">
+            </div>
+            <button class="btn btn-primary btn-full" id="btn-submit-create">
+                Crear sala
+            </button>
+        </div>
+    </div>
+
+    <!-- ==================== ROOM SCREEN ==================== -->
+    <div class="screen" id="screen-room">
+        <header class="room-header">
+            <button class="btn-back" id="btn-back-room">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="15 18 9 12 15 6"/>
+                </svg>
+                <span>Salir</span>
+            </button>
+            <div class="room-header-info">
+                <h2 class="room-name" id="room-name">Restaurante</h2>
+                <span class="room-code-badge" id="room-code-display">Código: ------</span>
+            </div>
+            <button class="header-btn" id="btn-share-room" aria-label="Compartir">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+                    <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+                </svg>
+            </button>
+        </header>
+
+        <!-- Participants Bar -->
+        <div class="participants-bar" id="participants-bar">
+            <div class="participants-list" id="participants-list">
+                <!-- Dynamic content -->
+            </div>
+        </div>
+
+        <!-- Menu Categories -->
+        <div class="menu-categories" id="menu-categories">
+            <!-- Dynamic category tabs -->
+        </div>
+
+        <!-- Menu Items -->
+        <div class="menu-items" id="menu-items">
+            <!-- Dynamic menu cards -->
+        </div>
+
+        <!-- My Order FAB -->
+        <button class="fab-order" id="btn-my-order">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/>
+                <line x1="3" y1="6" x2="21" y2="6"/>
+                <path d="M16 10a4 4 0 0 1-8 0"/>
+            </svg>
+            <span class="fab-badge" id="order-count">0</span>
+        </button>
+    </div>
+
+    <!-- ==================== ORDER SUMMARY SCREEN ==================== -->
+    <div class="screen" id="screen-order">
+        <header class="sub-header">
+            <button class="btn-back" id="btn-back-order">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="15 18 9 12 15 6"/>
+                </svg>
+                <span>Atrás</span>
+            </button>
+            <h2 class="sub-header-title">Mi Pedido</h2>
+            <div class="sub-header-spacer"></div>
+        </header>
+
+        <div class="order-content">
+            <div class="order-items-list" id="order-items-list">
+                <!-- Dynamic order items -->
+            </div>
+            <div class="order-summary-card" id="order-summary-card">
+                <div class="order-line">
+                    <span>Subtotal</span>
+                    <span id="order-subtotal">$0</span>
+                </div>
+                <div class="order-line order-total">
+                    <span>Mi total</span>
+                    <span id="order-total">$0</span>
+                </div>
+            </div>
+            <button class="btn btn-primary btn-full" id="btn-confirm-order">
+                Confirmar Pedido
+            </button>
+        </div>
+    </div>
+
+    <!-- ==================== SETTINGS SCREEN ==================== -->
+    <div class="screen" id="screen-settings">
+        <header class="sub-header">
+            <button class="btn-back" id="btn-back-settings">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="15 18 9 12 15 6"/>
+                </svg>
+                <span>Atrás</span>
+            </button>
+            <h2 class="sub-header-title">Ajustes</h2>
+            <div class="sub-header-spacer"></div>
+        </header>
+
+        <div class="settings-content">
+            <!-- User Info -->
+            <div class="settings-card settings-user" id="settings-user-card">
+                <img id="settings-avatar" class="settings-avatar" src="" alt="Avatar">
+                <div class="settings-user-info">
+                    <h3 id="settings-user-name">Usuario</h3>
+                    <p id="settings-user-email">email@ejemplo.com</p>
+                </div>
+            </div>
+
+            <!-- Preferences -->
+            <div class="settings-section">
+                <h4 class="settings-section-title">Preferencias</h4>
+                <div class="settings-card">
+                    <div class="settings-row">
+                        <div class="settings-row-left">
+                            <span class="settings-row-icon">🌙</span>
+                            <span>Modo Oscuro</span>
+                        </div>
+                        <label class="toggle">
+                            <input type="checkbox" id="toggle-dark-mode">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Notifications -->
+            <div class="settings-section">
+                <h4 class="settings-section-title">Notificaciones</h4>
+                <div class="settings-card">
+                    <div class="settings-row">
+                        <div class="settings-row-left">
+                            <span class="settings-row-icon">🔔</span>
+                            <span>Notificaciones Push</span>
+                        </div>
+                        <label class="toggle">
+                            <input type="checkbox" id="toggle-push">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div class="settings-row">
+                        <div class="settings-row-left">
+                            <span class="settings-row-icon">⏰</span>
+                            <span>Recordatorios</span>
+                        </div>
+                        <label class="toggle">
+                            <input type="checkbox" id="toggle-reminders">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Danger Zone -->
+            <div class="settings-section">
+                <h4 class="settings-section-title danger-title">Zona de Peligro</h4>
+                <div class="settings-card">
+                    <button class="btn btn-danger btn-full" id="btn-reset-data">
+                        Borrar todos mis datos
+                    </button>
+                    <button class="btn btn-outline-danger btn-full" id="btn-logout" style="margin-top: 12px;">
+                        Cerrar Sesión
+                    </button>
+                </div>
+            </div>
+
+            <p class="settings-version">The Bill v1.0.0</p>
+        </div>
+    </div>
+
+    <!-- ==================== MODALS ==================== -->
+
+    <!-- Modal: Add Item -->
+    <div class="modal-overlay" id="modal-add-item">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title" id="modal-item-name">Item</h3>
+                <button class="modal-close" id="modal-close-add">✕</button>
+            </div>
+            <div class="modal-body">
+                <p class="modal-item-price" id="modal-item-price">$0</p>
+                <p class="modal-item-desc" id="modal-item-desc"></p>
+
+                <div class="modal-section">
+                    <h4>¿Quién paga?</h4>
+                    <div class="payer-options" id="payer-options">
+                        <button class="payer-option active" data-payer="me">
+                            <span class="payer-icon">🙋</span>
+                            <span>Yo</span>
+                        </button>
+                        <button class="payer-option" data-payer="split">
+                            <span class="payer-icon">👥</span>
+                            <span>Dividir</span>
+                        </button>
+                        <button class="payer-option" data-payer="other">
+                            <span class="payer-icon">🎁</span>
+                            <span>Otro invita</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="modal-section" id="split-section" style="display:none;">
+                    <h4>Dividir entre:</h4>
+                    <div class="split-participants" id="split-participants">
+                        <!-- Dynamic participant checkboxes -->
+                    </div>
+                </div>
+
+                <div class="quantity-control">
+                    <button class="qty-btn" id="qty-minus">−</button>
+                    <span class="qty-value" id="qty-value">1</span>
+                    <button class="qty-btn" id="qty-plus">+</button>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary btn-full" id="btn-add-to-order">
+                    Agregar al pedido — <span id="modal-total">$0</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Confirm -->
+    <div class="modal-overlay" id="modal-confirm">
+        <div class="modal-content modal-sm">
+            <div class="modal-body" style="text-align:center; padding: 24px;">
+                <p class="modal-confirm-text" id="modal-confirm-text">¿Estás seguro?</p>
+            </div>
+            <div class="modal-footer modal-footer-split">
+                <button class="btn btn-ghost" id="modal-confirm-cancel">Cancelar</button>
+                <button class="btn btn-danger" id="modal-confirm-ok">Confirmar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast -->
+    <div class="toast" id="toast">
+        <span id="toast-text"></span>
+    </div>
+
+    <!-- Firebase Compat SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore-compat.js"></script>
+
+    <!-- App -->
+    <script src="app.js"></script>
+
+</body>
+</html>
