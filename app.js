@@ -232,10 +232,12 @@ async function loginWithEmail() {
         try {
             await auth.signInWithEmailAndPassword(email, password);
         } catch(e) {
-            if (e.code === 'auth/user-not-found') {
+            // Try to create the user if sign-in fails (could be non-existent or enumeration protection)
+            try {
                 await auth.createUserWithEmailAndPassword(email, password);
-            } else {
-                throw e;
+            } catch(createErr) {
+                // If creation also fails, then we really have an issue (e.g. provider disabled or invalid email)
+                throw createErr;
             }
         }
     } catch (error) {
