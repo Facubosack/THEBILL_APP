@@ -86,7 +86,7 @@
             </div>
 
             <div class="login-actions">
-                <button class="btn btn-google" id="btn-google-login">
+                <button class="btn btn-google" id="btn-google-login" style="margin-bottom:15px;">
                     <svg viewBox="0 0 24 24" width="20" height="20" xmlns="http://www.w3.org/2000/svg">
                         <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/>
                         <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
@@ -95,13 +95,26 @@
                     </svg>
                     <span>Continuar con Google</span>
                 </button>
+                
+                <div style="display:flex;align-items:center;margin: 10px 0;">
+                    <hr style="flex:1;border:0;border-top:1px solid var(--border-color);"><span style="margin:0 10px;color:var(--text-sec);font-size:12px;">O ingresá con email</span><hr style="flex:1;border:0;border-top:1px solid var(--border-color);">
+                </div>
+
+                <div class="form-group" style="text-align:left;">
+                    <input type="email" id="input-login-email" class="form-input" placeholder="Tu correo electrónico">
+                </div>
+                <button class="btn btn-outline-primary btn-full" id="btn-email-login">
+                    Continuar con Email
+                </button>
             </div>
 
             <p class="login-terms">Al continuar, aceptás nuestros <a href="#">Términos</a> y <a href="#">Política de Privacidad</a></p>
         </div>
     </div>
 
-    <!-- ==================== HOME SCREEN ==================== -->
+    </div>
+
+    <!-- ==================== HOME SCREEN (CLIENT) ==================== -->
     <div class="screen" id="screen-home">
         <header class="app-header">
             <div class="header-left">
@@ -141,19 +154,8 @@
             </div>
 
             <!-- Quick Actions -->
-            <div class="quick-actions">
-                <button class="action-card action-create" id="btn-create-room">
-                    <div class="action-icon">
-                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <rect x="3" y="3" width="18" height="18" rx="2"/>
-                            <line x1="12" y1="8" x2="12" y2="16"/>
-                            <line x1="8" y1="12" x2="16" y2="12"/>
-                        </svg>
-                    </div>
-                    <span class="action-label">Crear Sala</span>
-                    <span class="action-desc">Armá una mesa nueva</span>
-                </button>
-                <button class="action-card action-join" id="btn-join-room">
+            <div class="quick-actions" style="grid-template-columns: 1fr;">
+                <button class="action-card action-join" id="btn-join-room" style="text-align:center;align-items:center;">
                     <div class="action-icon">
                         <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/>
@@ -161,8 +163,8 @@
                             <line x1="15" y1="12" x2="3" y2="12"/>
                         </svg>
                     </div>
-                    <span class="action-label">Unirme</span>
-                    <span class="action-desc">Ingresá con un código</span>
+                    <span class="action-label">Unirme a una Sala</span>
+                    <span class="action-desc">Ingresá con el código de tu mesa</span>
                 </button>
             </div>
 
@@ -194,6 +196,125 @@
                 <span>Ajustes</span>
             </button>
         </nav>
+    </div>
+
+    <!-- ==================== OWNER DASHBOARD ==================== -->
+    <div class="screen" id="screen-owner-dashboard">
+        <header class="app-header">
+            <div class="header-left">
+                <div class="header-logo-mini">
+                    <svg viewBox="0 0 80 80" width="28" height="28" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <rect x="15" y="5" width="50" height="70" rx="6" fill="#F5A623" opacity="0.15"/>
+                        <rect x="18" y="8" width="44" height="64" rx="4" stroke="#F5A623" stroke-width="3" fill="none"/>
+                        <line x1="30" y1="56" x2="50" y2="56" stroke="#F5A623" stroke-width="3" stroke-linecap="round"/>
+                    </svg>
+                </div>
+                <h2 class="header-title">Dueño</h2>
+            </div>
+            <div class="header-right">
+                <button class="header-btn" id="btn-owner-settings" aria-label="Configuración">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+                </button>
+            </div>
+        </header>
+
+        <main class="home-content">
+            <div class="home-greeting">
+                <h1 id="owner-greeting">Hola, Dueño</h1>
+                <p class="greeting-sub">Gestioná tu local y equipo</p>
+            </div>
+
+            <!-- Create Restaurant Form -->
+            <div class="settings-card" id="owner-setup" style="margin-bottom:20px;">
+                <h3 style="margin-top:0;">1. Crear Restaurante</h3>
+                <div class="form-group">
+                    <input type="text" id="input-owner-restaurant-name" class="form-input" placeholder="Nombre de tu local">
+                </div>
+                <button class="btn btn-primary btn-full" id="btn-owner-create-rest">Guardar</button>
+            </div>
+
+            <!-- Manage Waiters -->
+            <div class="settings-card" id="owner-manage-waiters" style="display:none;margin-bottom:20px;">
+                <h3 style="margin-top:0;">2. Agregar Mozos</h3>
+                <p style="font-size:14px;color:var(--text-sec);margin-bottom:15px;">Añadí los emails de tus mozos para que puedan crear mesas en tu nombre.</p>
+                <div class="form-group" style="display:flex;gap:10px;">
+                    <input type="email" id="input-waiter-email" class="form-input" placeholder="email@ejemplo.com">
+                    <button class="btn btn-primary" id="btn-owner-add-waiter">Agregar</button>
+                </div>
+                <div id="waiters-list" style="margin-top:15px;margin-bottom:15px;display:flex;flex-direction:column;gap:10px;">
+                    <!-- dynamic waiters -->
+                </div>
+                <button class="btn btn-primary btn-full" id="btn-owner-continue-menu" style="display:none;">Continuar con creación de menú</button>
+            </div>
+
+            <!-- Manage Menu -->
+            <div class="settings-card" id="owner-manage-menu" style="display:none;margin-bottom:20px;">
+                <h3 style="margin-top:0;">3. Cargar Menú</h3>
+                <p style="font-size:14px;color:var(--text-sec);margin-bottom:15px;">Agregá los productos de tu carta.</p>
+                
+                <div class="form-group">
+                    <input type="text" id="input-menu-name" class="form-input" placeholder="Nombre del producto">
+                </div>
+                <div class="form-group" style="display:flex;gap:10px;">
+                    <input type="number" id="input-menu-price" class="form-input" placeholder="Precio ($)">
+                    <select id="input-menu-category" class="form-input" style="flex:1;">
+                        <option value="Platos">Plato</option>
+                        <option value="Bebidas">Bebida</option>
+                        <option value="Postres">Postre</option>
+                    </select>
+                </div>
+                <button class="btn btn-outline-primary btn-full" id="btn-owner-add-menu-item" style="margin-bottom:15px;">Añadir al menú</button>
+                
+                <div id="menu-items-list" style="margin-bottom:15px;display:flex;flex-direction:column;gap:10px;">
+                    <!-- dynamic menu items -->
+                </div>
+                
+                <button class="btn btn-primary btn-full" id="btn-owner-finish-setup">Finalizar creación de bar</button>
+            </div>
+        </main>
+    </div>
+
+    <!-- ==================== WAITER DASHBOARD ==================== -->
+    <div class="screen" id="screen-waiter-dashboard">
+        <header class="app-header">
+            <div class="header-left">
+                <div class="header-logo-mini">
+                    <svg viewBox="0 0 80 80" width="28" height="28" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <rect x="15" y="5" width="50" height="70" rx="6" fill="#F5A623" opacity="0.15"/>
+                        <rect x="18" y="8" width="44" height="64" rx="4" stroke="#F5A623" stroke-width="3" fill="none"/>
+                        <line x1="30" y1="56" x2="50" y2="56" stroke="#F5A623" stroke-width="3" stroke-linecap="round"/>
+                    </svg>
+                </div>
+                <h2 class="header-title">Mozo</h2>
+            </div>
+            <div class="header-right">
+                <button class="header-btn" id="btn-waiter-settings" aria-label="Configuración">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+                </button>
+            </div>
+        </header>
+
+        <main class="home-content" style="padding-top:10px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+                <div>
+                    <h1 id="waiter-greeting" style="margin:0;font-size:24px;">Mis Mesas</h1>
+                    <p class="greeting-sub">Gestioná las mesas activas</p>
+                </div>
+                <button class="btn btn-primary" id="btn-waiter-create-table" style="padding:10px 15px;font-size:14px;display:flex;align-items:center;gap:8px;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                    Nueva Mesa
+                </button>
+            </div>
+
+            <!-- Active Tables -->
+            <div class="rooms-list" id="waiter-tables-list" style="display:grid;gap:15px;">
+                <div class="empty-state">
+                    <div class="empty-icon">🍽️</div>
+                    <p class="empty-text">No tenés mesas activas</p>
+                    <p class="empty-sub">Creá una mesa nueva arriba</p>
+                </div>
+            </div>
+        </main>
     </div>
 
     <!-- ==================== ACTIVITY SCREEN ==================== -->
@@ -457,26 +578,22 @@
                 <p class="modal-item-desc" id="modal-item-desc"></p>
 
                 <div class="modal-section">
-                    <h4>¿Quién paga?</h4>
-                    <div class="payer-options" id="payer-options">
+                    <h4>¿Con quién compartís esto?</h4>
+                    <div class="payer-options" id="payer-options" style="flex-direction:row;justify-content:center;">
                         <button class="payer-option active" data-payer="me">
                             <span class="payer-icon">🙋</span>
-                            <span>Yo</span>
+                            <span>Solo yo</span>
                         </button>
                         <button class="payer-option" data-payer="split">
                             <span class="payer-icon">👥</span>
-                            <span>Dividir</span>
-                        </button>
-                        <button class="payer-option" data-payer="other">
-                            <span class="payer-icon">🎁</span>
-                            <span>Otro invita</span>
+                            <span>Compartir</span>
                         </button>
                     </div>
                 </div>
 
-                <div class="modal-section" id="split-section" style="display:none;">
-                    <h4>Dividir entre:</h4>
-                    <div class="split-participants" id="split-participants">
+                <div class="modal-section" id="split-section" style="display:none;margin-top:15px;text-align:left;">
+                    <h4 style="margin-bottom:10px;">Seleccioná a los participantes:</h4>
+                    <div class="split-participants" id="split-participants" style="display:flex;flex-direction:column;gap:12px;max-height:150px;overflow-y:auto;">
                         <!-- Dynamic participant checkboxes -->
                     </div>
                 </div>

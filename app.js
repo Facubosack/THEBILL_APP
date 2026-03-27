@@ -52,16 +52,41 @@ function showScreen(targetId, addToHistory = true) {
         state.currentScreen = targetId;
     }
 
+    // Hide bottom nav if it's the role dashboards, room, or login
+    const nav = document.getElementById('main-nav');
+    if (nav) {
+        if (['screen-home', 'screen-activity', 'screen-order'].includes(targetId)) {
+            nav.style.display = 'flex';
+        } else {
+            nav.style.display = 'none';
+        }
+    }
+
     // Update bottom nav active state
     updateBottomNav(targetId);
+}
+
+function goHome() {
+    if (state.user?.role === 'owner') {
+        showScreen('screen-owner-dashboard', false);
+    } else if (state.user?.role === 'waiter') {
+        showScreen('screen-waiter-dashboard', false);
+    } else {
+        showScreen('screen-home', false);
+    }
+    state.navigationHistory = [];
 }
 
 function goBack() {
     if (state.navigationHistory.length > 0) {
         const prev = state.navigationHistory.pop();
-        showScreen(prev, false);
+        if (prev === 'screen-role-select' || prev === 'screen-login') {
+            goHome();
+        } else {
+            showScreen(prev, false);
+        }
     } else {
-        showScreen('screen-home', false);
+        goHome();
     }
 }
 
@@ -91,18 +116,30 @@ function initLoadingScreen() {
 // ============================================
 
 function checkAuthState() {
-    // Mock check: see if we saved a fake session
     const isMockLoggedIn = localStorage.getItem('tb_mock_logged_in') === 'true';
+
+    // Determine role from hash or default to client
+    let role = 'client';
+    if (window.location.hash === '#owner') role = 'owner';
+    else if (window.location.hash === '#mozo') role = 'waiter';
+
+    // Verify if email was saved as waiter
+    const savedEmail = localStorage.getItem('tb_mock_email');
+    const savedWaiters = JSON.parse(localStorage.getItem('tb_mock_waiters') || '["mozo1@bar.com", "mozo@bar.com"]');
+    if (savedEmail && savedWaiters.includes(savedEmail)) {
+        role = 'waiter';
+    }
 
     if (isMockLoggedIn) {
         state.user = {
             uid: 'test-user-123',
             displayName: 'Facundo',
             email: 'facundo@test.com',
-            photoURL: '' // Empty so it shows the default styling
+            photoURL: '',
+            role: role
         };
         populateUserData(state.user);
-        showScreen('screen-home');
+        routeUserByRole(role);
     } else {
         state.user = null;
         state.isFirstVisit = !localStorage.getItem('tb_visited');
@@ -110,27 +147,91 @@ function checkAuthState() {
     }
 }
 
+function routeUserByRole(role) {
+    if (role === 'owner') {
+        showScreen('screen-owner-dashboard');
+    } else if (role === 'waiter') {
+        showScreen('screen-waiter-dashboard');
+    } else {
+        showScreen('screen-home'); // Client
+    }
+}
+
 // ---- Google Login (Mocked) ----
 async function loginWithGoogle() {
     try {
-        // Simulate network delay
         showToast('Iniciando sesión...');
         await new Promise(r => setTimeout(r, 800));
 
-        // Create mock user
+        let role = 'client';
+        if (window.location.hash === '#owner') role = 'owner';
+        else if (window.location.hash === '#mozo') role = 'waiter';
+
+        // Same check if google user is supposedly the waiter
+        const email = 'facundo@test.com';
+        const savedWaiters = JSON.parse(localStorage.getItem('tb_mock_waiters') || '["mozo1@bar.com", "mozo@bar.com"]');
+        if (savedWaiters.includes(email)) role = 'waiter';
+
         const mockUser = {
             uid: 'test-user-123',
             displayName: 'Facundo',
-            email: 'facundo@test.com',
-            photoURL: ''
+            email: email,
+            photoURL: '',
+            role: role
         };
 
         state.user = mockUser;
         localStorage.setItem('tb_visited', 'true');
         localStorage.setItem('tb_mock_logged_in', 'true');
+        localStorage.setItem('tb_mock_email', email);
 
+        routeUserByRole(role);
         populateUserData(mockUser);
-        showScreen('screen-home');
+        showToast('¡Bienvenido/a, ' + getFirstName(mockUser.displayName) + '! 🎉');
+    } catch (error) {
+        console.error('Login error:', error);
+        showToast('Error al iniciar sesión');
+    }
+}
+
+// ---- Email Login (Mocked) ----
+async function loginWithEmail() {
+    const input = document.getElementById('input-login-email');
+    const email = input?.value?.toLowerCase()?.trim();
+
+    if (!email || !email.includes('@')) {
+        return showToast('Ingresá un email válido');
+    }
+
+    try {
+        showToast('Iniciando sesión...');
+        await new Promise(r => setTimeout(r, 800));
+
+        let role = 'client';
+        if (window.location.hash === '#owner') role = 'owner';
+        else if (window.location.hash === '#mozo') role = 'waiter';
+
+        // Check if email belongs to a Waiter
+        const savedWaiters = JSON.parse(localStorage.getItem('tb_mock_waiters') || '["mozo1@bar.com", "mozo@bar.com"]');
+        if (savedWaiters.includes(email)) {
+            role = 'waiter';
+        }
+
+        const mockUser = {
+            uid: 'test-user-' + Date.now(),
+            displayName: email.split('@')[0],
+            email: email,
+            photoURL: '',
+            role: role
+        };
+
+        state.user = mockUser;
+        localStorage.setItem('tb_visited', 'true');
+        localStorage.setItem('tb_mock_logged_in', 'true');
+        localStorage.setItem('tb_mock_email', email);
+
+        routeUserByRole(role);
+        populateUserData(mockUser);
         showToast('¡Bienvenido/a, ' + getFirstName(mockUser.displayName) + '! 🎉');
     } catch (error) {
         console.error('Login error:', error);
@@ -142,6 +243,9 @@ async function loginWithGoogle() {
 async function logout() {
     try {
         localStorage.removeItem('tb_mock_logged_in');
+        // NOT clearing the role or visited flag to remember who they were,, or maybe we do.
+        localStorage.removeItem('tb_mock_role');
+        
         state.user = null;
         state.navigationHistory = [];
         showScreen('screen-login', false);
@@ -418,6 +522,24 @@ function openAddItemModal(item) {
     const splitSection = document.getElementById('split-section');
     if (splitSection) splitSection.style.display = 'none';
 
+    // Populate split participants mock
+    const participantsContainer = document.getElementById('split-participants');
+    if (participantsContainer) {
+        // Mock active participants in the room
+        const mockParticipants = [
+            { uid: 'test-user-123', name: 'Yo (' + getFirstName(state.user?.displayName || 'Cliente') + ')' },
+            { uid: 'friend-1', name: 'Juan C.' },
+            { uid: 'friend-2', name: 'María P.' }
+        ];
+        
+        participantsContainer.innerHTML = mockParticipants.map(p => `
+            <label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:8px;background:var(--bg-main);border-radius:8px;">
+                <input type="checkbox" class="split-checkbox" value="${p.uid}" ${p.uid === 'test-user-123' ? 'checked disabled' : ''}>
+                <span>${p.name}</span>
+            </label>
+        `).join('');
+    }
+
     if (modal) modal.classList.add('active');
 }
 
@@ -441,15 +563,28 @@ function updateQty(delta) {
 function addToOrder() {
     if (!currentModalItem) return;
 
-    const existingIndex = orderItems.findIndex(item => item.name === currentModalItem.name);
+    // Check who it's shared with
+    const activePayer = document.querySelector('.payer-option.active')?.dataset.payer;
+    let sharedWith = [state.user?.uid || 'test-user-123'];
+    
+    if (activePayer === 'split') {
+        const checkboxes = document.querySelectorAll('.split-checkbox:checked');
+        sharedWith = Array.from(checkboxes).map(cb => cb.value);
+    }
+
+    const itemHash = currentModalItem.name + '-' + sharedWith.sort().join(',');
+    const existingIndex = orderItems.findIndex(item => item.hash === itemHash);
+    
     if (existingIndex >= 0) {
         orderItems[existingIndex].qty += currentQty;
     } else {
         orderItems.push({
+            hash: itemHash,
             name: currentModalItem.name,
             price: currentModalItem.price,
             qty: currentQty,
-            desc: currentModalItem.desc
+            desc: currentModalItem.desc,
+            sharedWith: sharedWith
         });
     }
 
@@ -481,22 +616,26 @@ function showOrderSummary() {
         document.getElementById('order-summary-card').style.display = 'none';
         document.getElementById('btn-confirm-order').style.display = 'none';
     } else {
-        container.innerHTML = orderItems.map((item, i) =>
-            `<div class="order-item-card">
+        container.innerHTML = orderItems.map((item, i) => {
+            const splitRatio = item.sharedWith.length;
+            const myShare = (item.price * item.qty) / splitRatio;
+            const splitText = splitRatio > 1 ? `<span style="font-size:12px;color:var(--primary);">(Dividido entre ${splitRatio})</span>` : '';
+            
+            return `<div class="order-item-card">
                 <div class="order-item-info">
-                    <h4>${item.name}</h4>
+                    <h4>${item.name} ${splitText}</h4>
                     <p class="order-item-qty">${item.qty}x $${item.price.toLocaleString('es-AR')}</p>
                 </div>
                 <div class="order-item-right">
-                    <span class="order-item-total">$${(item.price * item.qty).toLocaleString('es-AR')}</span>
+                    <span class="order-item-total">$${myShare.toLocaleString('es-AR')}</span>
                     <button class="order-item-remove" data-index="${i}" aria-label="Eliminar">
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                     </button>
                 </div>
-            </div>`
-        ).join('');
+            </div>`;
+        }).join('');
 
-        const subtotal = orderItems.reduce((sum, item) => sum + (item.price * item.qty), 0);
+        const subtotal = orderItems.reduce((sum, item) => sum + ((item.price * item.qty) / item.sharedWith.length), 0);
         document.getElementById('order-subtotal').textContent = '$' + subtotal.toLocaleString('es-AR');
         document.getElementById('order-total').textContent = '$' + subtotal.toLocaleString('es-AR');
         document.getElementById('order-summary-card').style.display = 'block';
@@ -695,16 +834,156 @@ function copyToClipboard(text) {
 }
 
 // ============================================
+// ROLE MANAGEMENT (NEW)
+// ============================================
+
+function setRole(role) {
+    if (!state.user) return;
+    state.user.role = role;
+    localStorage.setItem('tb_mock_role', role);
+    routeUserByRole(role);
+}
+
+// ============================================
+// OWNER DASHBOARD LOGIC
+// ============================================
+
+function handleOwnerCreateRest() {
+    const input = document.getElementById('input-owner-restaurant-name');
+    if (!input?.value) return showToast('Ingresá el nombre');
+    showToast('Restaurante creado: ' + input.value);
+    document.getElementById('owner-setup').style.display = 'none';
+    document.getElementById('owner-manage-waiters').style.display = 'block';
+}
+
+function handleOwnerAddWaiter() {
+    const input = document.getElementById('input-waiter-email');
+    if (!input?.value || !input.value.includes('@')) return showToast('Email inválido');
+    
+    const email = input.value.toLowerCase().trim();
+    
+    // Save to localStorage so we can verify waiters
+    const savedWaiters = JSON.parse(localStorage.getItem('tb_mock_waiters') || '[]');
+    if (!savedWaiters.includes(email)) {
+        savedWaiters.push(email);
+        localStorage.setItem('tb_mock_waiters', JSON.stringify(savedWaiters));
+    }
+
+    const list = document.getElementById('waiters-list');
+    list.innerHTML += `<div style="padding:10px;background:var(--bg-sec);border-radius:8px;display:flex;justify-content:space-between;margin-top:10px;">
+        <span>${email}</span>
+        <span style="color:var(--text-sec);font-size:12px;">Mozo</span>
+    </div>`;
+    
+    showToast('Mozo invitado');
+    input.value = '';
+
+    const continueBtn = document.getElementById('btn-owner-continue-menu');
+    if (continueBtn) continueBtn.style.display = 'block';
+}
+
+function handleOwnerContinueMenu() {
+    document.getElementById('owner-manage-waiters').style.display = 'none';
+    document.getElementById('owner-manage-menu').style.display = 'block';
+}
+
+function handleOwnerAddMenuItem() {
+    const nameInput = document.getElementById('input-menu-name');
+    const priceInput = document.getElementById('input-menu-price');
+    const catInput = document.getElementById('input-menu-category');
+
+    if (!nameInput.value || !priceInput.value) return showToast('Completá nombre y precio');
+
+    const list = document.getElementById('menu-items-list');
+    list.innerHTML += `<div style="padding:12px;background:var(--bg-sec);border-radius:8px;display:flex;justify-content:space-between;align-items:center;margin-top:10px;">
+        <div>
+            <h4 style="margin:0;font-size:14px;color:var(--text-main);">${nameInput.value}</h4>
+            <p style="margin:2px 0 0 0;font-size:12px;color:var(--text-sec);">${catInput.value}</p>
+        </div>
+        <strong style="color:var(--text-main);">$${priceInput.value}</strong>
+    </div>`;
+
+    showToast('Item agregado al menú');
+    nameInput.value = '';
+    priceInput.value = '';
+}
+
+function handleOwnerFinishSetup() {
+    showToast('¡Restaurante configurado exitosamente! 🎉');
+    document.getElementById('owner-manage-menu').style.display = 'none';
+    document.getElementById('owner-greeting').textContent = 'Tu Restaurante está activo';
+    
+    // Create a visual summary
+    document.getElementById('owner-setup').insertAdjacentHTML('afterend', `
+        <div class="settings-card" style="margin-bottom:20px;text-align:center;">
+            <div style="font-size:40px;margin-bottom:10px;">🏪</div>
+            <h3>¡Todo listo!</h3>
+            <p style="color:var(--text-sec);">Tus mozos ya pueden crear mesas y los clientes ya pueden ver tu menú.</p>
+        </div>
+    `);
+}
+
+// ============================================
+// WAITER DASHBOARD LOGIC
+// ============================================
+
+function handleWaiterCreateTable() {
+    const code = generateRoomCode();
+    
+    state.currentRoom = {
+        code: code,
+        restaurant: 'Tu Restaurante',
+        table: 'Mesa ' + (Math.floor(Math.random() * 20) + 1),
+        items: []
+    };
+
+    const list = document.getElementById('waiter-tables-list');
+    const empty = list.querySelector('.empty-state');
+    if (empty) empty.remove();
+
+    list.innerHTML += `<div class="room-card" style="padding:15px;background:var(--card-bg);border-radius:12px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;">
+        <div>
+            <h4 style="margin:0;">${state.currentRoom.table}</h4>
+            <p style="margin:4px 0 0 0;font-size:14px;color:var(--text-sec);">Código: <strong style="color:var(--primary);font-size:16px;">${code}</strong></p>
+        </div>
+        <button class="btn btn-primary" style="padding:6px 12px;font-size:12px;" onclick="showScreen('screen-room')">Entrar</button>
+    </div>`;
+
+    showToast('Mesa creada. Código: ' + code);
+
+    // Populate room view
+    const roomName = document.getElementById('room-name');
+    const roomCode = document.getElementById('room-code-display');
+    if (roomName) roomName.textContent = state.currentRoom.restaurant + ' - ' + state.currentRoom.table;
+    if (roomCode) roomCode.textContent = 'Código: ' + code;
+    
+    showScreen('screen-room');
+}
+
+// ============================================
 // EVENT LISTENERS
 // ============================================
 
 function initEventListeners() {
+    // --- Owner ---
+    document.getElementById('btn-owner-create-rest')?.addEventListener('click', handleOwnerCreateRest);
+    document.getElementById('btn-owner-add-waiter')?.addEventListener('click', handleOwnerAddWaiter);
+    document.getElementById('btn-owner-continue-menu')?.addEventListener('click', handleOwnerContinueMenu);
+    document.getElementById('btn-owner-add-menu-item')?.addEventListener('click', handleOwnerAddMenuItem);
+    document.getElementById('btn-owner-finish-setup')?.addEventListener('click', handleOwnerFinishSetup);
+
+    // --- Waiter ---
+    document.getElementById('btn-waiter-create-table')?.addEventListener('click', handleWaiterCreateTable);
+    document.getElementById('btn-waiter-settings')?.addEventListener('click', () => showScreen('screen-settings'));
+
     // --- Login ---
     document.getElementById('btn-google-login')?.addEventListener('click', loginWithGoogle);
+    document.getElementById('btn-email-login')?.addEventListener('click', loginWithEmail);
 
     // --- Header Actions ---
     document.getElementById('btn-settings')?.addEventListener('click', () => showScreen('screen-settings'));
     document.getElementById('btn-profile')?.addEventListener('click', () => showScreen('screen-settings'));
+    document.getElementById('btn-owner-settings')?.addEventListener('click', () => showScreen('screen-settings'));
 
     // --- Home Actions ---
     document.getElementById('btn-create-room')?.addEventListener('click', () => showScreen('screen-create-room'));
@@ -716,8 +995,7 @@ function initEventListeners() {
     document.getElementById('btn-back-room')?.addEventListener('click', () => {
         orderItems = [];
         updateOrderBadge();
-        showScreen('screen-home', false);
-        state.navigationHistory = [];
+        goHome();
     });
     document.getElementById('btn-back-order')?.addEventListener('click', goBack);
     document.getElementById('btn-back-settings')?.addEventListener('click', goBack);
