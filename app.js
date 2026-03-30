@@ -425,6 +425,9 @@ async function joinRoom() {
             // Load real menu from Restaurant
             await loadRestaurantMenu(state.currentRoom.restaurantId);
             
+            // Save to recent rooms
+            addRecentRoom(state.currentRoom);
+            
             showScreen('screen-room');
             listenToRoom(code);
         } else {
@@ -1465,7 +1468,67 @@ function handleOwnerFinishSetup() {
     loadOwnerData(); // Reload all cards and go to cards view
 }
 
-function loadClientData() {}
+function loadClientData() {
+    renderRecentRooms();
+}
+
+function addRecentRoom(roomData) {
+    if (!roomData || !roomData.code) return;
+    
+    let recent = JSON.parse(localStorage.getItem('tb_recent_rooms') || '[]');
+    
+    const newRoom = {
+        code: roomData.code,
+        table: roomData.table || 'Mesa',
+        timestamp: Date.now()
+    };
+    
+    recent = recent.filter(r => r.code !== newRoom.code);
+    recent.unshift(newRoom);
+    
+    if (recent.length > 5) recent.pop();
+    
+    localStorage.setItem('tb_recent_rooms', JSON.stringify(recent));
+    renderRecentRooms();
+}
+
+function renderRecentRooms() {
+    const list = document.getElementById('rooms-list');
+    if (!list) return;
+    
+    const recent = JSON.parse(localStorage.getItem('tb_recent_rooms') || '[]');
+    
+    if (recent.length === 0) {
+        list.innerHTML = `
+            <div class="empty-state" id="empty-rooms">
+                <div class="empty-icon">🧾</div>
+                <p class="empty-text">No tenés salas recientes</p>
+                <p class="empty-sub">Unite con un código</p>
+            </div>
+        `;
+        return;
+    }
+    
+    list.innerHTML = recent.map(room => `
+        <div class="room-card" style="padding:15px; background:var(--bg-main); border:1px solid var(--border); border-radius:12px; display:flex; justify-content:space-between; align-items:center; cursor:pointer;" onclick="quickJoinRoom('${room.code}')">
+            <div>
+                <h4 style="margin:0; font-size:16px; color:var(--text-main);">${room.table}</h4>
+                <p style="margin:4px 0 0 0; font-size:12px; color:var(--text-sec);">Código: <strong style="color:var(--primary);">${room.code}</strong></p>
+            </div>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+        </div>
+    `).join('');
+}
+
+function quickJoinRoom(code) {
+    const codeInput = document.getElementById('input-room-code');
+    if (codeInput) codeInput.value = code;
+    showScreen('screen-join-room');
+    setTimeout(() => {
+        const btn = document.getElementById('btn-submit-join');
+        if (btn && !btn.disabled) btn.click();
+    }, 100);
+}
 
 // ============================================
 // WAITER DASHBOARD LOGIC
