@@ -955,6 +955,17 @@ function renderWaiterCheckout() {
 
     if (btnClose) {
         btnClose.disabled = !allPaid;
+        if (allPaid && hasDebt) {
+            btnClose.className = 'btn btn-full';
+            btnClose.style.backgroundColor = 'var(--color-success)';
+            btnClose.style.color = '#fff';
+            btnClose.textContent = '✓ Cerrar Mesa';
+        } else {
+            btnClose.className = 'btn btn-full';
+            btnClose.style.backgroundColor = 'var(--color-border)';
+            btnClose.style.color = 'var(--color-text-tertiary)';
+            btnClose.textContent = 'Cerrar Mesa';
+        }
     }
 
     const roomHeader = document.querySelector('.room-header');
@@ -1741,8 +1752,10 @@ function initEventListeners() {
     document.getElementById('btn-back-join')?.addEventListener('click', goBack);
     document.getElementById('btn-back-create')?.addEventListener('click', goBack);
     document.getElementById('btn-back-room')?.addEventListener('click', () => {
-        orderItems = [];
-        updateOrderBadge();
+        if (roomUnsubscribe) roomUnsubscribe();
+        if (ordersUnsubscribe) ordersUnsubscribe();
+        state.currentRoom = null;
+        state.currentOrders = [];
         goHome();
     });
     document.getElementById('btn-back-order')?.addEventListener('click', goBack);
