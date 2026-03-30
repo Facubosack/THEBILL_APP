@@ -3,15 +3,15 @@
 // Cache-first for static assets, network-first for API
 // ============================================
 
-const CACHE_NAME = 'the-bill-v24';
+const CACHE_NAME = 'the-bill-v25';
 const STATIC_ASSETS = [
-    '/',
-    '/index.html',
-    '/styles.css',
-    '/app.js',
-    '/manifest.json',
-    '/icon-192.png',
-    '/icon-512.png',
+    './',
+    './index.html',
+    './styles.css',
+    './app.js',
+    './manifest.json',
+    './icon-192.svg',
+    './icon-512.svg',
     'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap'
 ];
 

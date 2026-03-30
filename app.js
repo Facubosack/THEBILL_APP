@@ -1326,7 +1326,7 @@ function resetAllData() {
 async function registerServiceWorker() {
     if ('serviceWorker' in navigator) {
         try {
-            const reg = await navigator.serviceWorker.register('/sw.js');
+            const reg = await navigator.serviceWorker.register('./sw.js');
             console.log('[App] Service Worker registered:', reg.scope);
         } catch (error) {
             console.error('[App] SW registration failed:', error);

@@ -1,8 +1,9 @@
 {
-    "name": "The Bill — Dividí la cuenta fácil",
+    "name": "The Bill — Dividí las cuentas, no los amigos",
     "short_name": "The Bill",
     "description": "Creá salas, elegí del menú y dividí el pago sin complicaciones.",
-    "start_url": "/",
+    "start_url": "./",
+    "scope": "./",
     "display": "standalone",
     "orientation": "portrait",
     "theme_color": "#F5A623",
