@@ -428,6 +428,11 @@ async function joinRoom() {
             // Save to recent rooms
             addRecentRoom(state.currentRoom);
             
+            const btnW = document.getElementById('btn-waiter-checkout');
+            const btnP = document.getElementById('btn-pay-my-order');
+            if (btnW) btnW.style.display = 'none';
+            if (btnP) btnP.style.display = 'block';
+
             showScreen('screen-room');
             listenToRoom(code);
         } else {
@@ -447,21 +452,28 @@ function listenToRoom(code) {
     // Listen for participants
     roomUnsubscribe = db.collection('rooms').doc(code).onSnapshot(doc => {
         if (doc.exists) {
+            if (doc.data().status === 'closed') {
+                showToast('La mesa ha sido cerrada por el mozo');
+                goHome(); // kick
+                return;
+            }
             state.currentRoom = doc.data();
             renderParticipantsUI();
+            if (state.user?.role === 'waiter') renderWaiterCheckout();
         } else {
-            showToast('La mesa ha sido cerrada por el mozo');
+            showToast('La mesa no existe');
             goHome(); // return safely
         }
     });
 
-        // Listen for orders
+    // Listen for orders
     ordersUnsubscribe = db.collection('rooms').doc(code).collection('orders').onSnapshot(snapshot => {
         const orders = [];
         snapshot.forEach(d => orders.push({ id: d.id, ...d.data() }));
         state.currentOrders = orders;
         renderRealtimeOrders();
         renderPersonalCheckout();
+        if (state.user?.role === 'waiter') renderWaiterCheckout();
     });
 }
 
@@ -897,6 +909,99 @@ function renderPersonalCheckout() {
     }).join('');
 
     if (totalDisplay) totalDisplay.textContent = '$' + myTotal.toLocaleString('es-AR');
+}
+
+function renderWaiterCheckout() {
+    const container = document.getElementById('waiter-checkout-list');
+    const btnClose = document.getElementById('btn-close-table');
+    if (!container || !state.currentRoom || !state.currentOrders) return;
+
+    let allPaid = true;
+    let hasDebt = false;
+
+    container.innerHTML = state.currentRoom.participants.map(p => {
+        // Find orders for this person
+        const myOrders = state.currentOrders.filter(o => o.sharedWith && o.sharedWith.includes(p.uid));
+        
+        let myTotal = 0;
+        myOrders.forEach(order => {
+            myTotal += (order.price * order.qty) / order.sharedWith.length;
+        });
+
+        if (myTotal > 0) hasDebt = true;
+
+        const isPaid = p.status === 'paid';
+        if (myTotal > 0 && !isPaid) allPaid = false;
+
+        const statusClass = isPaid ? 'status-paid' : 'status-pending';
+        const actionText = isPaid ? 'Pagado ✓' : 'Marcar Pagado';
+
+        return `
+            <div class="waiter-participant-row ${statusClass}">
+                <div class="waiter-participant-info">
+                    <span class="waiter-participant-name">${p.displayName || 'Cliente'}</span>
+                    <span class="waiter-participant-total">$${myTotal.toLocaleString('es-AR')}</span>
+                </div>
+                <button class="btn ${isPaid ? 'btn-ghost' : 'btn-outline-primary'}" style="padding: 6px 12px; font-size: 12px;" onclick="toggleParticipantPayment('${p.uid}', '${isPaid}')">
+                    ${actionText}
+                </button>
+            </div>
+        `;
+    }).join('');
+
+    if (state.currentRoom.participants.length === 0) {
+        container.innerHTML = '<p style="text-align:center; color: var(--text-sec);">No hay clientes unidos a la mesa</p>';
+    }
+
+    if (btnClose) {
+        btnClose.disabled = !allPaid;
+    }
+
+    const roomHeader = document.querySelector('.room-header');
+    if (roomHeader) {
+        if (allPaid && hasDebt) {
+            roomHeader.style.backgroundColor = 'rgba(52, 199, 89, 0.15)';
+        } else {
+            roomHeader.style.backgroundColor = 'var(--color-surface)';
+        }
+    }
+}
+
+async function toggleParticipantPayment(uid, currentlyPaid) {
+    if (!state.currentRoom) return;
+    const newStatus = currentlyPaid === 'true' ? 'pending' : 'paid';
+    
+    try {
+        const newParticipants = state.currentRoom.participants.map(p => 
+            p.uid === uid ? { ...p, status: newStatus } : p
+        );
+        
+        await db.collection('rooms').doc(state.currentRoom.code).update({
+            participants: newParticipants
+        });
+    } catch (e) {
+        console.error("Error toggling payment:", e);
+        showToast("Error al cambiar estado");
+    }
+}
+
+async function closeTable() {
+    if (!confirm("¿Cerrar mesa definitivamente? Esto expulsará a los clientes.")) return;
+    try {
+        const btn = document.getElementById('btn-close-table');
+        if (btn) btn.disabled = true;
+        await db.collection('rooms').doc(state.currentRoom.code).update({
+            status: 'closed'
+        });
+        document.getElementById('modal-waiter-checkout')?.classList.remove('active');
+        goHome();
+        showToast("Mesa Cerrada con éxito");
+    } catch (e) {
+        console.error("Error closing table", e);
+        showToast("Error al cerrar la mesa");
+        const btn = document.getElementById('btn-close-table');
+        if (btn) btn.disabled = false;
+    }
 }
 
 // ============================================
@@ -1561,6 +1666,11 @@ async function enterWaiterRoom(code) {
             // Waiters also see the menu
             await loadRestaurantMenu(state.currentRoom.restaurantId);
             
+            const btnW = document.getElementById('btn-waiter-checkout');
+            const btnP = document.getElementById('btn-pay-my-order');
+            if (btnW) btnW.style.display = 'block';
+            if (btnP) btnP.style.display = 'none';
+
             showScreen('screen-room');
             listenToRoom(code);
         }
@@ -1672,6 +1782,14 @@ function initEventListeners() {
         document.getElementById('modal-checkout')?.classList.remove('active');
         showToast('¡Pago registrado con el cajero!');
     });
+
+    document.getElementById('btn-waiter-checkout')?.addEventListener('click', () => {
+        document.getElementById('modal-waiter-checkout')?.classList.add('active');
+    });
+    document.getElementById('modal-close-waiter-checkout')?.addEventListener('click', () => {
+        document.getElementById('modal-waiter-checkout')?.classList.remove('active');
+    });
+    document.getElementById('btn-close-table')?.addEventListener('click', closeTable);
 
     // --- Add Item Modal ---
     document.getElementById('modal-close-add')?.addEventListener('click', closeAddItemModal);

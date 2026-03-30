@@ -1868,3 +1868,51 @@ a {
     font-weight: 800;
     color: var(--color-primary);
 }
+
+/* ==========================================
+   WAITER CHECKOUT
+   ========================================== */
+.waiter-participant-row {
+    background: var(--bg-sec);
+    border-radius: var(--radius-md);
+    padding: var(--space-md);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border: 2px solid transparent;
+    transition: all var(--transition-fast);
+}
+
+.waiter-participant-row.status-pending {
+    border-color: var(--color-danger);
+    background: var(--color-danger-bg);
+}
+
+.waiter-participant-row.status-paid {
+    border-color: var(--color-success);
+    background: rgba(52, 199, 89, 0.1);
+}
+
+.waiter-participant-info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.waiter-participant-name {
+    font-weight: 700;
+    font-size: 1rem;
+}
+
+.waiter-participant-total {
+    font-size: 0.95rem;
+    font-weight: 800;
+}
+
+.waiter-participant-row.status-pending .waiter-participant-total {
+    color: var(--color-danger);
+}
+
+.waiter-participant-row.status-paid .waiter-participant-total {
+    color: var(--color-success);
+}
