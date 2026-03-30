@@ -1384,9 +1384,16 @@ function setRole(role) {
 // OWNER DASHBOARD LOGIC
 // ============================================
 
+let waiterTableOrderCounts = {}; // { roomCode: lastKnownCount }
+let waiterTableListeners = [];   // cleanup array
+
 async function loadWaiterData() {
     const list = document.getElementById('waiter-tables-list');
     if (!list || !state.user || !state.user.uid) return;
+
+    // Cleanup old per-table listeners
+    waiterTableListeners.forEach(unsub => unsub());
+    waiterTableListeners = [];
 
     try {
         const query = db.collection('rooms')
@@ -1396,21 +1403,109 @@ async function loadWaiterData() {
         query.onSnapshot(snapshot => {
             if (snapshot.empty) {
                 list.innerHTML = `<div class="empty-state" style="grid-column: 1 / -1;"><div class="empty-icon">🍽️</div><p class="empty-text">No tenés mesas activas</p><p class="empty-sub">Creá una mesa nueva arriba</p></div>`;
-            } else {
-                list.innerHTML = '';
-                snapshot.forEach(doc => {
-                    const room = doc.data();
-                    list.innerHTML += `<div class="room-card" style="padding:24px 15px; background:var(--card-bg); border-radius:16px; display:flex; flex-direction:column; justify-content:center; align-items:center; text-align:center; box-shadow:0 8px 16px rgba(0,0,0,0.05); cursor:pointer; transition: transform 0.2s ease;" onclick="enterWaiterRoom('${room.code}')">
-                        <h4 style="margin:0 0 8px 0; font-size:22px; color:var(--text-main); font-weight:800;">${room.table}</h4>
-                        <p style="margin:0; font-size:13px; color:var(--text-sec); letter-spacing:0.5px;">Cód: <strong style="color:var(--primary);">${room.code}</strong></p>
-                    </div>`;
-                });
+                return;
             }
+
+            list.innerHTML = '';
+            snapshot.forEach(doc => {
+                const room = doc.data();
+                const code = room.code;
+
+                // Initialize count tracking if first time
+                if (waiterTableOrderCounts[code] === undefined) {
+                    waiterTableOrderCounts[code] = -1; // -1 means "first load, don't blink"
+                }
+
+                // Create card element
+                const card = document.createElement('div');
+                card.className = 'room-card';
+                card.id = 'table-card-' + code;
+                card.style.cssText = 'position:relative; padding:24px 15px; background:var(--card-bg); border-radius:16px; display:flex; flex-direction:column; justify-content:center; align-items:center; text-align:center; box-shadow:0 8px 16px rgba(0,0,0,0.05); cursor:pointer; transition: transform 0.2s ease;';
+                card.onclick = () => enterWaiterRoom(code);
+                card.innerHTML = `
+                    <h4 style="margin:0 0 8px 0; font-size:22px; color:var(--text-main); font-weight:800;">${room.table}</h4>
+                    <p style="margin:0; font-size:13px; color:var(--text-sec); letter-spacing:0.5px;">Cód: <strong style="color:var(--primary);">${code}</strong></p>
+                    <p style="margin:4px 0 0 0; font-size:11px; color:var(--text-sec);">👥 ${room.participants ? room.participants.length : 0} clientes</p>
+                `;
+                list.appendChild(card);
+
+                // Attach per-table order listener
+                const unsub = db.collection('rooms').doc(code).collection('orders')
+                    .onSnapshot(orderSnap => {
+                        const currentCount = orderSnap.size;
+                        const prevCount = waiterTableOrderCounts[code];
+                        const cardEl = document.getElementById('table-card-' + code);
+
+                        if (prevCount === -1) {
+                            // First load — just set baseline, no blink
+                            waiterTableOrderCounts[code] = currentCount;
+                        } else if (currentCount > prevCount) {
+                            // New orders arrived! Blink it
+                            const newCount = currentCount - prevCount;
+                            waiterTableOrderCounts[code] = currentCount;
+
+                            if (cardEl) {
+                                cardEl.classList.add('table-card-has-new');
+                                // Add or update badge
+                                let badge = cardEl.querySelector('.table-new-badge');
+                                if (!badge) {
+                                    badge = document.createElement('span');
+                                    badge.className = 'table-new-badge';
+                                    cardEl.appendChild(badge);
+                                }
+                                badge.textContent = newCount;
+                            }
+                        }
+                    });
+                waiterTableListeners.push(unsub);
+            });
         });
     } catch(e) {
         console.error("Error loading waiter tables:", e);
-        // Requires index for waiterId, status, createdAt! We might get a perm error in console. If so we can remove orderBy.
     }
+}
+
+function showNewOrdersPopup(code) {
+    // Get orders that arrived since last visit
+    const orders = state.currentOrders || [];
+    if (orders.length === 0) return;
+
+    // Build a summary of the most recent orders
+    const recentOrders = orders.sort((a, b) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0)).slice(0, 10);
+    
+    const itemsHtml = recentOrders.map(o => 
+        `<div style="display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--color-border-light);">
+            <div>
+                <span style="font-weight:600;">${o.qty}x ${o.name}</span>
+                <span style="font-size:11px; color:var(--color-text-secondary); margin-left:6px;">(${o.ordererName || 'Cliente'})</span>
+            </div>
+            <span style="font-weight:700;">$${(o.price * o.qty).toLocaleString('es-AR')}</span>
+        </div>`
+    ).join('');
+
+    // Reuse the confirm modal pattern
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay active';
+    overlay.id = 'modal-new-orders-popup';
+    overlay.innerHTML = `
+        <div class="modal-content" style="max-height:70vh; display:flex; flex-direction:column;">
+            <div class="modal-header">
+                <h3 class="modal-title">📋 Pedidos de la Mesa</h3>
+                <button class="modal-close" onclick="document.getElementById('modal-new-orders-popup').remove()">✕</button>
+            </div>
+            <div class="modal-body" style="overflow-y:auto; padding:15px;">
+                <p style="font-size:12px; color:var(--color-text-secondary); margin-bottom:12px; text-align:center;">Estos son los pedidos activos en esta mesa</p>
+                ${itemsHtml}
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary btn-full" onclick="document.getElementById('modal-new-orders-popup').remove()">Entendido ✓</button>
+            </div>
+        </div>
+    `;
+    overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) overlay.remove();
+    });
+    document.body.appendChild(overlay);
 }
 // ============================================
 // BAR CREATION WIZARD (MULTI-BAR ADAPTED)
@@ -1665,6 +1760,14 @@ async function handleWaiterCreateTable() {
 
 async function enterWaiterRoom(code) {
     try {
+        // Clear blink and badge from the table card
+        const cardEl = document.getElementById('table-card-' + code);
+        if (cardEl) {
+            cardEl.classList.remove('table-card-has-new');
+            const badge = cardEl.querySelector('.table-new-badge');
+            if (badge) badge.remove();
+        }
+
         const doc = await db.collection('rooms').doc(code).get();
         if (doc.exists) {
             state.currentRoom = doc.data();
@@ -1684,6 +1787,13 @@ async function enterWaiterRoom(code) {
 
             showScreen('screen-room');
             listenToRoom(code);
+
+            // Show orders popup after a short delay to let orders load
+            setTimeout(() => {
+                if (state.currentOrders && state.currentOrders.length > 0) {
+                    showNewOrdersPopup(code);
+                }
+            }, 800);
         }
     } catch(e) {
         console.error(e);

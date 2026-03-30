@@ -1916,3 +1916,33 @@ a {
 .waiter-participant-row.status-paid .waiter-participant-total {
     color: var(--color-success);
 }
+
+/* ==========================================
+   TABLE CARD — NEW ORDER BLINK
+   ========================================== */
+@keyframes tableNewOrderPulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(245, 166, 35, 0.4); }
+    50% { box-shadow: 0 0 0 10px rgba(245, 166, 35, 0); }
+}
+
+.table-card-has-new {
+    animation: tableNewOrderPulse 1.5s ease-in-out infinite;
+    border: 2px solid var(--color-primary) !important;
+}
+
+.table-new-badge {
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    background: var(--color-danger);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 800;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 6px rgba(255, 59, 48, 0.4);
+}
