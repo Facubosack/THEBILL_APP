@@ -244,11 +244,12 @@
 
             <!-- Manage Waiters -->
             <div class="settings-card" id="owner-manage-waiters" style="display:none;margin-bottom:20px;">
-                <h3 style="margin-top:0;">2. Agregar Mozos</h3>
-                <p style="font-size:14px;color:var(--text-sec);margin-bottom:15px;">Añadí los emails de tus mozos para que puedan crear mesas en tu nombre.</p>
-                <div class="form-group" style="display:flex;gap:10px;">
+                <h3 style="margin-top:0;">2. Crear y Agregar Mozos</h3>
+                <p style="font-size:14px;color:var(--text-sec);margin-bottom:15px;">Creales una cuenta (email y contraseña) para que puedan entrar y atender mesas en tu nombre.</p>
+                <div class="form-group" style="display:flex;flex-direction:column;gap:10px;">
                     <input type="email" id="input-waiter-email" class="form-input" placeholder="email@ejemplo.com">
-                    <button class="btn btn-primary" id="btn-owner-add-waiter">Agregar</button>
+                    <input type="password" id="input-waiter-password" class="form-input" placeholder="Contraseña para el mozo">
+                    <button class="btn btn-primary btn-full" id="btn-owner-add-waiter">Crear y Agregar Mozo</button>
                 </div>
                 <div id="waiters-list" style="margin-top:15px;margin-bottom:15px;display:flex;flex-direction:column;gap:10px;">
                     <!-- dynamic waiters -->
@@ -327,9 +328,10 @@
         <main class="home-content" style="padding-top:15px;">
             <!-- Tab: Waiters -->
             <div class="tab-content" id="tab-waiters">
-                <div class="form-group" style="display:flex; gap:10px; margin-bottom:20px;">
+                <div class="form-group" style="display:flex; flex-direction:column; gap:10px; margin-bottom:20px;">
                     <input type="email" id="input-new-waiter-email" class="form-input" placeholder="email@nuevo-mozo.com">
-                    <button class="btn btn-primary" id="btn-add-waiter-detail">Agregar</button>
+                    <input type="password" id="input-new-waiter-password" class="form-input" placeholder="Contraseña para el mozo">
+                    <button class="btn btn-primary btn-full" id="btn-add-waiter-detail">Crear y Agregar Mozo</button>
                 </div>
                 <div id="owner-waiters-list" style="display:flex; flex-direction:column; gap:12px;">
                     <!-- dynamic waiter list -->

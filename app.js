@@ -19,6 +19,9 @@ firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
 
+// ---- Secondary Firebase App for Waiter Creation ----
+const secondaryApp = firebase.initializeApp(firebaseConfig, "WaiterCreatorApp");
+
 // ---- App State ----
 const state = {
     currentScreen: 'screen-loading',
@@ -603,21 +606,55 @@ function renderOwnerMenu() {
 
 async function addWaiterToBar() {
     const input = document.getElementById('input-new-waiter-email');
+    const passInput = document.getElementById('input-new-waiter-password');
     const email = input?.value?.toLowerCase().trim();
+    const password = passInput?.value;
+    
     if (!email || !state.selectedBar) return;
+    if (!password || password.length < 6) return showToast('Contraseña corta (mínimo 6)');
 
     try {
+        const btn = document.getElementById('btn-add-waiter-detail');
+        const originalText = btn.textContent;
+        btn.textContent = 'Creando...';
+        btn.disabled = true;
+
+        showToast('Creando cuenta del mozo...');
+        const userCreds = await secondaryApp.auth().createUserWithEmailAndPassword(email, password);
+        const newUid = userCreds.user.uid;
+        await secondaryApp.auth().signOut();
+
+        await db.collection('users').doc(newUid).set({
+            uid: newUid,
+            email: email,
+            displayName: email.split('@')[0],
+            role: 'waiter',
+            restaurantId: state.selectedBar.id,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+
         const newWaiters = [...(state.selectedBar.waiters || []), email];
         await db.collection('restaurants').doc(state.selectedBar.id).update({
             waiters: newWaiters
         });
         state.selectedBar.waiters = newWaiters;
+        
         input.value = '';
+        passInput.value = '';
         renderOwnerWaiters();
-        showToast("Mozo agregado");
+        showToast("Mozo creado y agregado");
+        
+        btn.textContent = originalText;
+        btn.disabled = false;
     } catch (e) {
         console.error(e);
-        showToast("Error al agregar mozo");
+        const btn = document.getElementById('btn-add-waiter-detail');
+        if (btn) { btn.textContent = 'Crear y Agregar Mozo'; btn.disabled = false; }
+        if (e.code === 'auth/email-already-in-use') {
+            showToast('Ese email ya tiene cuenta');
+        } else {
+            showToast("Error al agregar mozo");
+        }
     }
 }
 
@@ -1186,8 +1223,7 @@ async function loadWaiterData() {
     try {
         const query = db.collection('rooms')
                         .where('waiterId', '==', state.user.uid)
-                        .where('status', '==', 'active')
-                        .orderBy('createdAt', 'desc');
+                        .where('status', '==', 'active');
                         
         query.onSnapshot(snapshot => {
             if (snapshot.empty) {
@@ -1240,13 +1276,35 @@ async function handleOwnerCreateRest() {
 
 async function handleOwnerAddWaiter() {
     const input = document.getElementById('input-waiter-email');
+    const passInput = document.getElementById('input-waiter-password');
     if (!input?.value || !input.value.includes('@')) return showToast('Email inválido');
+    if (!passInput?.value || passInput.value.length < 6) return showToast('Contraseña corta (mínimo 6)');
     
     const email = input.value.toLowerCase().trim();
+    const password = passInput.value;
     const restId = state.tempResourceId;
     if (!restId) return showToast('Error: No se encontró el ID del restaurante');
     
     try {
+        const btn = document.getElementById('btn-owner-add-waiter');
+        const originalText = btn.textContent;
+        btn.textContent = 'Creando...';
+        btn.disabled = true;
+
+        showToast('Creando cuenta del mozo...');
+        const userCreds = await secondaryApp.auth().createUserWithEmailAndPassword(email, password);
+        const newUid = userCreds.user.uid;
+        await secondaryApp.auth().signOut();
+
+        await db.collection('users').doc(newUid).set({
+            uid: newUid,
+            email: email,
+            displayName: email.split('@')[0],
+            role: 'waiter',
+            restaurantId: restId,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+
         await db.collection('restaurants').doc(restId).update({
             waiters: firebase.firestore.FieldValue.arrayUnion(email)
         });
@@ -1257,14 +1315,23 @@ async function handleOwnerAddWaiter() {
             <span style="color:var(--text-sec);font-size:12px;">Mozo</span>
         </div>`;
         
-        showToast('Mozo invitado');
+        showToast('Mozo creado e invitado');
         input.value = '';
+        passInput.value = '';
+        btn.textContent = originalText;
+        btn.disabled = false;
         
         const continueBtn = document.getElementById('btn-owner-continue-menu');
         if (continueBtn) continueBtn.style.display = 'block';
     } catch(e) {
         console.error(e);
-        showToast('Error al agregar mozo');
+        const btn = document.getElementById('btn-owner-add-waiter');
+        if (btn) { btn.textContent = 'Crear y Agregar Mozo'; btn.disabled = false; }
+        if (e.code === 'auth/email-already-in-use') {
+            showToast('Ese email ya tiene cuenta en Firebase');
+        } else {
+            showToast('Error al crear cuenta del mozo');
+        }
     }
 }
 
