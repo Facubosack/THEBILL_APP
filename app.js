@@ -539,6 +539,18 @@ async function enterOwnerBarDetail(barId) {
     renderOwnerWaiters();
     renderOwnerMenu();
     
+    // Build backward-compatible map of UID -> Email for old tables
+    try {
+        const usersSnap = await db.collection('users')
+            .where('restaurantId', '==', barId)
+            .where('role', '==', 'waiter')
+            .get();
+        state.uidToEmailMap = {};
+        usersSnap.forEach(doc => {
+            state.uidToEmailMap[doc.data().uid] = doc.data().email;
+        });
+    } catch(e) { console.error(e); }
+
     // Start listening to active tables for this bar
     if (barTablesUnsubscribe) barTablesUnsubscribe();
     barTablesUnsubscribe = db.collection('rooms')
@@ -548,7 +560,9 @@ async function enterOwnerBarDetail(barId) {
             const counts = {};
             snapshot.forEach(doc => {
                 const data = doc.data();
-                counts[data.waiterId] = (counts[data.waiterId] || 0) + 1;
+                const mappedEmail = state.uidToEmailMap ? state.uidToEmailMap[data.waiterId] : null;
+                const key = data.waiterEmail || mappedEmail || data.waiterId;
+                counts[key] = (counts[key] || 0) + 1;
             });
             state.activeTablesCounts = counts;
             renderOwnerWaiters(); // Refresh list with counts
@@ -1483,6 +1497,7 @@ async function handleWaiterCreateTable() {
         restaurantId: state.user.restaurantId,
         table: tableNumber,
         waiterId: state.user.uid,
+        waiterEmail: state.user.email || '',
         status: 'active',
         createdAt: firebase.firestore.FieldValue.serverTimestamp(),
         participants: []
