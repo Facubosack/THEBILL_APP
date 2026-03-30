@@ -1395,8 +1395,21 @@ async function handleWaiterCreateTable() {
         return showToast('No estás asignado a un restaurante');
     }
 
+    const btn = document.getElementById('btn-waiter-create-table');
+    if (btn) btn.disabled = true;
+
+    let nextTableNum = 1;
+    try {
+        const snapshot = await db.collection('rooms')
+            .where('waiterId', '==', state.user.uid)
+            .get();
+        nextTableNum = snapshot.size + 1;
+    } catch(e) {
+        console.warn("Could not fetch table count", e);
+    }
+
     const code = generateRoomCode();
-    const tableNumber = 'Mesa ' + (Math.floor(Math.random() * 20) + 1);
+    const tableNumber = 'Mesa ' + nextTableNum;
     
     const newRoom = {
         code: code,
@@ -1415,6 +1428,9 @@ async function handleWaiterCreateTable() {
     } catch(e) {
         console.error("Error creating table:", e);
         showToast('Error al crear la mesa');
+    } finally {
+        const btn = document.getElementById('btn-waiter-create-table');
+        if (btn) btn.disabled = false;
     }
 }
 
