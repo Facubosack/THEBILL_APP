@@ -1813,3 +1813,58 @@ a {
     justify-content: center;
     overflow-y: auto;
 }
+
+/* ==========================================
+   ROOM BOTTOM ACTIONS (Checkout & Orders)
+   ========================================== */
+.room-bottom-actions {
+    display: flex;
+    gap: var(--space-sm);
+    padding: var(--space-md) var(--space-lg);
+    background-color: var(--color-surface);
+    border-top: 1px solid var(--color-border);
+    position: sticky;
+    bottom: 0px;
+    z-index: 10;
+    box-shadow: 0 -4px 12px rgba(0,0,0,0.05);
+}
+
+.room-bottom-actions .btn {
+    flex: 1;
+    font-size: 0.9rem;
+    padding: 12px 16px;
+}
+
+.checkout-receipt {
+    background: var(--bg-sec);
+    border-radius: var(--radius-md);
+    padding: var(--space-md);
+    margin-bottom: var(--space-md);
+}
+
+.checkout-item {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: var(--space-sm);
+    font-size: 0.95rem;
+}
+
+.checkout-item-title {
+    font-weight: 600;
+}
+
+.checkout-item-split {
+    font-size: 0.8rem;
+    color: var(--color-text-secondary);
+}
+
+.checkout-total-row {
+    border-top: 2px dashed var(--color-border);
+    margin-top: var(--space-md);
+    padding-top: var(--space-md);
+    display: flex;
+    justify-content: space-between;
+    font-size: 1.2rem;
+    font-weight: 800;
+    color: var(--color-primary);
+}

@@ -455,13 +455,13 @@ function listenToRoom(code) {
         }
     });
 
-    // Listen for orders
+        // Listen for orders
     ordersUnsubscribe = db.collection('rooms').doc(code).collection('orders').onSnapshot(snapshot => {
         const orders = [];
         snapshot.forEach(d => orders.push({ id: d.id, ...d.data() }));
         state.currentOrders = orders;
         renderRealtimeOrders();
-        updateOrderBadge(); // Client's FAB
+        renderPersonalCheckout();
     });
 }
 
@@ -828,8 +828,8 @@ function renderRealMenuItems(category) {
 }
 
 function renderRealtimeOrders() {
-    const container = document.getElementById('order-items-list-display'); 
-    const totalDisplay = document.getElementById('room-total-display');
+    const container = document.getElementById('modal-table-orders-list'); 
+    const totalDisplay = document.getElementById('modal-table-total-display');
     if (!container || !state.currentOrders) return;
     
     if (state.currentOrders.length === 0) {
@@ -859,6 +859,44 @@ function renderRealtimeOrders() {
     }).join('');
 
     if (totalDisplay) totalDisplay.textContent = '$' + total.toLocaleString('es-AR');
+}
+
+function renderPersonalCheckout() {
+    const container = document.getElementById('checkout-receipt-list');
+    const totalDisplay = document.getElementById('checkout-personal-total');
+    if (!container || !state.currentOrders || !state.user) return;
+    
+    const myOrders = state.currentOrders.filter(o => o.sharedWith && o.sharedWith.includes(state.user.uid));
+    
+    if (myOrders.length === 0) {
+        container.innerHTML = '<p style="text-align:center; color: var(--text-sec); font-size:12px; padding:15px;">No tenés pedidos a tu nombre</p>';
+        if (totalDisplay) totalDisplay.textContent = '$0';
+        return;
+    }
+
+    let myTotal = 0;
+    container.innerHTML = myOrders.sort((a,b) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0)).map(order => {
+        const splitRatio = order.sharedWith.length;
+        const myShare = (order.price * order.qty) / splitRatio;
+        myTotal += myShare;
+        
+        let splitBadge = '';
+        if (splitRatio > 1) {
+            splitBadge = `<span class="checkout-item-split">(Dividido entre ${splitRatio} — Total: $${(order.price * order.qty).toLocaleString('es-AR')})</span>`;
+        }
+
+        return `
+            <div class="checkout-item" style="display:flex; flex-direction:column; gap:4px; padding: 12px 0; border-bottom: 1px solid var(--border-light);">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <div class="checkout-item-title">${order.qty}x ${order.name}</div>
+                    <div style="font-weight:700;">$${myShare.toLocaleString('es-AR')}</div>
+                </div>
+                ${splitBadge}
+            </div>
+        `;
+    }).join('');
+
+    if (totalDisplay) totalDisplay.textContent = '$' + myTotal.toLocaleString('es-AR');
 }
 
 // ============================================
@@ -1615,8 +1653,24 @@ function initEventListeners() {
 
     // --- Room Actions ---
     document.getElementById('btn-share-room')?.addEventListener('click', shareRoom);
-    document.getElementById('btn-my-order')?.addEventListener('click', () => {
-        showToast('Los pedidos ahora se envían directamente. Buscalos en "Pedidos en curso"');
+
+    // --- Room Bottom Actions / Modals ---
+    document.getElementById('btn-view-table-orders')?.addEventListener('click', () => {
+        document.getElementById('modal-table-orders')?.classList.add('active');
+    });
+    document.getElementById('modal-close-table-orders')?.addEventListener('click', () => {
+        document.getElementById('modal-table-orders')?.classList.remove('active');
+    });
+    
+    document.getElementById('btn-pay-my-order')?.addEventListener('click', () => {
+        document.getElementById('modal-checkout')?.classList.add('active');
+    });
+    document.getElementById('modal-close-checkout')?.addEventListener('click', () => {
+        document.getElementById('modal-checkout')?.classList.remove('active');
+    });
+    document.getElementById('btn-confirm-payment')?.addEventListener('click', () => {
+        document.getElementById('modal-checkout')?.classList.remove('active');
+        showToast('¡Pago registrado con el cajero!');
     });
 
     // --- Add Item Modal ---
