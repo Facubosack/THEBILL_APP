@@ -865,6 +865,19 @@ function renderRealtimeOrders() {
 // ORDER MANAGEMENT
 // ============================================
 
+function updateQty(change) {
+    if (!currentModalItem) return;
+    
+    currentQty += change;
+    if (currentQty < 1) currentQty = 1;
+    
+    const qtyDisplay = document.getElementById('qty-value');
+    if (qtyDisplay) qtyDisplay.textContent = currentQty;
+    
+    const totalDisplay = document.getElementById('modal-total');
+    if (totalDisplay) totalDisplay.textContent = '$' + (currentModalItem.price * currentQty).toLocaleString('es-AR');
+}
+
 function openAddItemModal(item) {
     currentModalItem = item;
     currentQty = 1;
