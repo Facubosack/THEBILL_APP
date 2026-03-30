@@ -3,7 +3,7 @@
 // Cache-first for static assets, network-first for API
 // ============================================
 
-const CACHE_NAME = 'the-bill-v5';
+const CACHE_NAME = 'the-bill-v6';
 const STATIC_ASSETS = [
     '/',
     '/index.html',

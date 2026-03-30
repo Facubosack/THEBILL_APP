@@ -27,7 +27,8 @@ const state = {
     darkMode: false,
     isFirstVisit: true,
     currentRoom: null,
-    navigationHistory: []
+    navigationHistory: [],
+    authMode: 'login' // 'login' or 'register'
 };
 
 // ---- Push Server URL ----
@@ -131,8 +132,8 @@ auth.onAuthStateChanged(async (user) => {
                 let role = 'client';
                 let restaurantId = null;
                 
-                // 1. Check if owner hash
-                if (window.location.hash === '#owner') {
+                // 1. Check if owner hash or intent
+                if (window.location.hash === '#owner' || localStorage.getItem('tb_intent') === 'owner') {
                     role = 'owner';
                 } else {
                     // 2. Check if email is in any restaurant's waiters list
@@ -213,44 +214,64 @@ async function loginWithGoogle() {
     }
 }
 
+function toggleAuthMode(e) {
+    if (e) e.preventDefault();
+    state.authMode = state.authMode === 'login' ? 'register' : 'login';
+    
+    const btnAuth = document.getElementById('btn-email-auth');
+    const toggleText = document.getElementById('auth-toggle-text');
+    const toggleBtn = document.getElementById('btn-toggle-auth');
+    
+    if (state.authMode === 'login') {
+        btnAuth.textContent = 'Iniciar Sesión';
+        toggleText.textContent = '¿No tenés cuenta?';
+        toggleBtn.textContent = 'Crear una';
+    } else {
+        btnAuth.textContent = 'Crear Cuenta';
+        toggleText.textContent = '¿Ya tenés cuenta?';
+        toggleBtn.textContent = 'Iniciar Sesión';
+    }
+}
+
 async function loginWithEmail() {
     const emailInput = document.getElementById('input-login-email');
+    const passInput = document.getElementById('input-login-password');
     const email = emailInput?.value?.toLowerCase()?.trim();
+    const password = passInput?.value;
     
-    // Instead of password for MVP, we'll try to use a default password if they don't have one, 
-    // or we tell them to use Google. Let's force them to use Google for now to avoid Email/Password setup issues.
-    if (!email) {
-        showToast('Por favor, ingresá un correo válido.');
+    if (!email || !password) {
+        showToast('Por favor, ingresá email y contraseña.');
         return;
     }
-    showToast('Iniciando sesión con email...');
     
-    // For MVP phase 2, we strongly recommend Google auth, but we can implement Email/Password if the user has it enabled in Firebase.
+    if (password.length < 6) {
+        showToast('La contraseña debe tener al menos 6 caracteres.');
+        return;
+    }
+
+    showToast(state.authMode === 'login' ? 'Iniciando sesión...' : 'Creando cuenta...');
+    
     try {
-        const password = "password123"; // Dummy password for rapid test accounts
-        try {
+        if (state.authMode === 'login') {
             await auth.signInWithEmailAndPassword(email, password);
-        } catch(e) {
-            // Try to create the user if sign-in fails (could be non-existent or enumeration protection)
-            try {
-                await auth.createUserWithEmailAndPassword(email, password);
-            } catch(createErr) {
-                // If creation also fails, then we really have an issue (e.g. provider disabled or invalid email)
-                throw createErr;
-            }
+        } else {
+            await auth.createUserWithEmailAndPassword(email, password);
         }
     } catch (error) {
-        console.error("Email login error:", error);
-        if (error.code === 'auth/operation-not-allowed') {
-            showToast('Habilitá "Correo/Contraseña" en Firebase Auth.');
-        } else {
-            showToast('Error: ' + error.message);
-        }
+        console.error("Auth error:", error);
+        let msg = 'Error: ' + error.message;
+        if (error.code === 'auth/email-already-in-use') msg = 'Este email ya está registrado.';
+        if (error.code === 'auth/wrong-password') msg = 'Contraseña incorrecta.';
+        if (error.code === 'auth/user-not-found') msg = 'Usuario no encontrado. ¿Querés crear una cuenta?';
+        if (error.code === 'auth/weak-password') msg = 'La contraseña es muy débil.';
+        showToast(msg);
     }
 }
 
 async function logout() {
     try {
+        await auth.signOut();
+        state.user = null;
         showScreen('screen-login', false);
         showToast('Sesión cerrada');
     } catch (error) {
@@ -474,7 +495,7 @@ async function loadOwnerData() {
         state.ownerRestaurants = restaurants;
 
         if (restaurants.length === 0) {
-            showScreen('screen-owner-setup');
+            showScreen('screen-owner-dashboard');
         } else {
             showOwnerRestaurants();
         }
@@ -1370,14 +1391,15 @@ function initEventListeners() {
     document.getElementById('btn-waiter-settings')?.addEventListener('click', () => showScreen('screen-settings'));
 
     // --- Login ---
+    document.getElementById('btn-email-auth')?.addEventListener('click', loginWithEmail);
+    document.getElementById('btn-toggle-auth')?.addEventListener('click', toggleAuthMode);
     document.getElementById('btn-google-login')?.addEventListener('click', loginWithGoogle);
-    document.getElementById('btn-email-login')?.addEventListener('click', loginWithEmail);
 
     // --- Header Actions ---
     document.getElementById('btn-settings')?.addEventListener('click', () => showScreen('screen-settings'));
     // --- Owner Expansion ---
     document.getElementById('btn-owner-add-new-bar')?.addEventListener('click', () => {
-        showScreen('screen-owner-setup');
+        showScreen('screen-owner-dashboard');
     });
 
     document.getElementById('btn-back-to-restaurants')?.addEventListener('click', () => {
@@ -1400,7 +1422,10 @@ function initEventListeners() {
     document.getElementById('btn-add-item-detail')?.addEventListener('click', addMenuItemToBar);
 
     document.getElementById('btn-profile')?.addEventListener('click', () => showScreen('screen-settings'));
+    document.getElementById('btn-owner-profile-card')?.addEventListener('click', () => showScreen('screen-settings'));
     document.getElementById('btn-owner-settings')?.addEventListener('click', () => showScreen('screen-settings'));
+    document.getElementById('btn-settings')?.addEventListener('click', () => showScreen('screen-settings'));
+    document.getElementById('btn-waiter-settings')?.addEventListener('click', () => showScreen('screen-settings'));
 
     // --- Home Actions ---
     document.getElementById('btn-create-room')?.addEventListener('click', () => showScreen('screen-create-room'));
@@ -1502,7 +1527,19 @@ function initEventListeners() {
             e.preventDefault();
             goBack();
         }
+        if (window.location.hash === '#owner') {
+            localStorage.setItem('tb_intent', 'owner');
+        } else {
+            localStorage.removeItem('tb_intent');
+        }
     });
+
+    // Check initial hash
+    if (window.location.hash === '#owner') {
+        localStorage.setItem('tb_intent', 'owner');
+    } else {
+        localStorage.removeItem('tb_intent');
+    }
 }
 
 // ============================================
