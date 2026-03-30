@@ -959,6 +959,7 @@ function addToOrder() {
     if (!currentModalItem) return;
 
     const isWaiter = state.user?.role === 'waiter';
+    const safeId = currentModalItem.id || 'no-id';
 
     if (isWaiter) {
         const selectedRadio = document.querySelector('input[name="waiter-client-select"]:checked');
@@ -971,12 +972,14 @@ function addToOrder() {
         const roomCode = state.currentRoom.code;
         const ordersRef = db.collection('rooms').doc(roomCode).collection('orders');
         
+        const itemName = currentModalItem.name || 'Producto';
+
         ordersRef.add({
-            hash: currentModalItem.id + '-' + clientUid + '-' + Date.now(),
-            id: currentModalItem.id,
-            name: currentModalItem.name,
-            price: currentModalItem.price,
-            qty: currentQty,
+            hash: safeId + '-' + clientUid + '-' + Date.now(),
+            id: safeId,
+            name: itemName,
+            price: currentModalItem.price || 0,
+            qty: currentQty || 1,
             sharedWith: [clientUid],
             orderedBy: clientUid, 
             ordererName: clientName + " (Mozo)", 
@@ -995,129 +998,43 @@ function addToOrder() {
 
     // Check who it's shared with (CLIENT)
     const activePayer = document.querySelector('.payer-option.active')?.dataset.payer;
-    let sharedWith = [state.user?.uid]; // Use real UID
+    let sharedWith = [state.user?.uid || 'none']; // Use real UID
     
     if (activePayer === 'split') {
         const checkboxes = document.querySelectorAll('.split-checkbox:checked');
         sharedWith = Array.from(checkboxes).map(cb => cb.value);
     }
 
-    const itemHash = currentModalItem.id + '-' + sharedWith.sort().join(',');
-    const existingIndex = orderItems.findIndex(item => item.hash === itemHash);
+    const itemName = currentModalItem.name || 'Producto';
+    const finalQty = currentQty || 1;
+
+    const roomCode = state.currentRoom.code;
+    const ordersRef = db.collection('rooms').doc(roomCode).collection('orders');
     
-    if (existingIndex >= 0) {
-        orderItems[existingIndex].qty += currentQty;
-    } else {
-        orderItems.push({
-            hash: itemHash,
-            id: currentModalItem.id, // item id
-            name: currentModalItem.name,
-            price: currentModalItem.price,
-            qty: currentQty,
-            sharedWith: sharedWith
-        });
-    }
+    ordersRef.add({
+        hash: safeId + '-' + sharedWith.sort().join(',') + '-' + Date.now(),
+        id: safeId, // item id
+        name: itemName,
+        price: currentModalItem.price || 0,
+        qty: finalQty,
+        sharedWith: sharedWith,
+        orderedBy: state.user?.uid || 'unknown',
+        ordererName: state.user?.displayName || 'Cliente',
+        timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+        status: 'pending'
+    }).then(() => {
+        showToast(finalQty + 'x ' + itemName + ' enviado al mozo');
+    }).catch(e => {
+        console.error("Client add error:", e);
+        showToast("Error al enviar el pedido");
+    });
 
-    updateOrderBadge();
     closeAddItemModal();
-    showToast(currentQty + 'x ' + currentModalItem.name + ' en el carrito');
 }
-
-async function confirmOrder() {
-    if (orderItems.length === 0) return showToast('Nada para confirmar');
-    if (!state.currentRoom?.code) return showToast('No hay una mesa activa');
-
-    showToast('Enviando pedido...');
-    try {
-        const roomCode = state.currentRoom.code;
-        const ordersRef = db.collection('rooms').doc(roomCode).collection('orders');
-        
-        // Push each item as a separate document for better real-time updates / logic later
-        const batch = db.batch();
-        
-        orderItems.forEach(item => {
-            const newOrderRef = ordersRef.doc();
-            batch.set(newOrderRef, {
-                ...item,
-                orderedBy: state.user.uid,
-                ordererName: state.user.displayName,
-                timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-                status: 'pending' // Or 'confirmed'
-            });
-        });
-
-        await batch.commit();
-
-        showToast('¡Pedido confirmado! 🎉');
-        orderItems = [];
-        updateOrderBadge();
-        goBack(); // Return to room menu
-    } catch(e) {
-        console.error("Error confirming order:", e);
-        showToast('Error al enviar el pedido');
-    }
-}
-
-function updateOrderBadge() {
-    const badge = document.getElementById('order-count');
-    if (!badge) return;
-    const count = orderItems.reduce((sum, item) => sum + item.qty, 0);
-    badge.textContent = count;
-    badge.parentElement.style.display = count > 0 ? 'flex' : 'none';
-}
-
 
 function showOrderSummary() {
-    const container = document.getElementById('order-items-list');
-    if (!container) return;
-
-    if (orderItems.length === 0) {
-        container.innerHTML = `
-            <div class="empty-state">
-                <div class="empty-icon">🛒</div>
-                <p class="empty-text">Tu pedido está vacío</p>
-                <p class="empty-sub">Agregá items del menú</p>
-            </div>`;
-        document.getElementById('order-summary-card').style.display = 'none';
-        document.getElementById('btn-confirm-order').style.display = 'none';
-    } else {
-        container.innerHTML = orderItems.map((item, i) => {
-            const splitRatio = item.sharedWith.length;
-            const myShare = (item.price * item.qty) / splitRatio;
-            const splitText = splitRatio > 1 ? `<span style="font-size:12px;color:var(--primary);">(Dividido entre ${splitRatio})</span>` : '';
-            
-            return `<div class="order-item-card">
-                <div class="order-item-info">
-                    <h4>${item.name} ${splitText}</h4>
-                    <p class="order-item-qty">${item.qty}x $${item.price.toLocaleString('es-AR')}</p>
-                </div>
-                <div class="order-item-right">
-                    <span class="order-item-total">$${myShare.toLocaleString('es-AR')}</span>
-                    <button class="order-item-remove" data-index="${i}" aria-label="Eliminar">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                    </button>
-                </div>
-            </div>`;
-        }).join('');
-
-        const subtotal = orderItems.reduce((sum, item) => sum + ((item.price * item.qty) / item.sharedWith.length), 0);
-        document.getElementById('order-subtotal').textContent = '$' + subtotal.toLocaleString('es-AR');
-        document.getElementById('order-total').textContent = '$' + subtotal.toLocaleString('es-AR');
-        document.getElementById('order-summary-card').style.display = 'block';
-        document.getElementById('btn-confirm-order').style.display = 'flex';
-
-        // Bind remove buttons
-        container.querySelectorAll('.order-item-remove').forEach(btn => {
-            btn.addEventListener('click', () => {
-                const idx = parseInt(btn.dataset.index);
-                orderItems.splice(idx, 1);
-                updateOrderBadge();
-                showOrderSummary();
-            });
-        });
-    }
-
-    showScreen('screen-order');
+    // Deprecated: No local cart anymore. Redirecting to room.
+    goBack();
 }
 
 // ============================================
@@ -1698,7 +1615,9 @@ function initEventListeners() {
 
     // --- Room Actions ---
     document.getElementById('btn-share-room')?.addEventListener('click', shareRoom);
-    document.getElementById('btn-my-order')?.addEventListener('click', showOrderSummary);
+    document.getElementById('btn-my-order')?.addEventListener('click', () => {
+        showToast('Los pedidos ahora se envían directamente. Buscalos en "Pedidos en curso"');
+    });
 
     // --- Add Item Modal ---
     document.getElementById('modal-close-add')?.addEventListener('click', closeAddItemModal);
