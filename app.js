@@ -861,27 +861,59 @@ function openAddItemModal(item) {
 
     if (name) name.textContent = item.name;
     if (price) price.textContent = '$' + item.price.toLocaleString('es-AR');
-    if (desc) desc.textContent = item.desc;
+    if (desc) desc.textContent = item.desc || '';
     if (qtyDisplay) qtyDisplay.textContent = '1';
     if (total) total.textContent = '$' + item.price.toLocaleString('es-AR');
 
-    // Reset payer options
-    document.querySelectorAll('.payer-option').forEach(opt => opt.classList.remove('active'));
-    const defaultPayer = document.querySelector('.payer-option[data-payer="me"]');
-    if (defaultPayer) defaultPayer.classList.add('active');
+    const isWaiter = state.user?.role === 'waiter';
 
+    const payerContainer = document.getElementById('payer-section-container');
+    const payerTitle = document.getElementById('payer-section-title');
+    const payerOptions = document.getElementById('payer-options');
     const splitSection = document.getElementById('split-section');
-    if (splitSection) splitSection.style.display = 'none';
-
-    // Populate split participants from Realtime state
+    const splitTitle = document.getElementById('split-section-title');
     const participantsContainer = document.getElementById('split-participants');
-    if (participantsContainer && state.currentRoom) {
-        participantsContainer.innerHTML = state.currentRoom.participants.map(p => `
-            <label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:8px;background:var(--bg-main);border-radius:8px;">
-                <input type="checkbox" class="split-checkbox" value="${p.uid}" ${p.uid === state.user.uid ? 'checked disabled' : ''}>
-                <span>${p.uid === state.user.uid ? 'Yo (' + getFirstName(p.displayName) + ')' : p.displayName}</span>
-            </label>
-        `).join('');
+
+    if (isWaiter) {
+        if (payerContainer) payerContainer.style.display = 'none';
+        if (splitSection) {
+            splitSection.style.display = 'block';
+            if (splitTitle) splitTitle.textContent = '¿Para qué cliente es?';
+        }
+        
+        if (participantsContainer && state.currentRoom) {
+            participantsContainer.innerHTML = state.currentRoom.participants.map((p, idx) => `
+                <label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:8px;background:var(--bg-main);border-radius:8px;">
+                    <input type="radio" name="waiter-client-select" class="waiter-client-radio" value="${p.uid}" ${idx === 0 ? 'checked' : ''}>
+                    <span>${p.displayName}</span>
+                </label>
+            `).join('');
+            if (state.currentRoom.participants.length === 0) {
+                 participantsContainer.innerHTML = '<p class="empty-text" style="font-size:13px;">No hay clientes unidos a la mesa.</p>';
+            }
+        }
+    } else {
+        if (payerContainer) payerContainer.style.display = 'block';
+        if (payerTitle) payerTitle.textContent = '¿Con quién compartís esto?';
+        if (payerOptions) payerOptions.style.display = 'flex';
+        
+        document.querySelectorAll('.payer-option').forEach(opt => opt.classList.remove('active'));
+        const defaultPayer = document.querySelector('.payer-option[data-payer="me"]');
+        if (defaultPayer) defaultPayer.classList.add('active');
+
+        if (splitSection) {
+            splitSection.style.display = 'none';
+            if (splitTitle) splitTitle.textContent = 'Seleccioná a los participantes:';
+        }
+
+        if (participantsContainer && state.currentRoom) {
+            participantsContainer.innerHTML = state.currentRoom.participants.map(p => `
+                <label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:8px;background:var(--bg-main);border-radius:8px;">
+                    <input type="checkbox" class="split-checkbox" value="${p.uid}" ${p.uid === state.user.uid ? 'checked disabled' : ''}>
+                    <span>${p.uid === state.user.uid ? 'Yo (' + getFirstName(p.displayName) + ')' : p.displayName}</span>
+                </label>
+            `).join('');
+        }
     }
 
     if (modal) modal.classList.add('active');
@@ -896,7 +928,42 @@ function closeAddItemModal() {
 function addToOrder() {
     if (!currentModalItem) return;
 
-    // Check who it's shared with
+    const isWaiter = state.user?.role === 'waiter';
+
+    if (isWaiter) {
+        const selectedRadio = document.querySelector('input[name="waiter-client-select"]:checked');
+        if (!selectedRadio) return showToast('Seleccioná un cliente primero');
+        
+        const clientUid = selectedRadio.value;
+        const clientObj = state.currentRoom.participants.find(p => p.uid === clientUid);
+        const clientName = clientObj ? clientObj.displayName : 'Cliente';
+        
+        const roomCode = state.currentRoom.code;
+        const ordersRef = db.collection('rooms').doc(roomCode).collection('orders');
+        
+        ordersRef.add({
+            hash: currentModalItem.id + '-' + clientUid + '-' + Date.now(),
+            id: currentModalItem.id,
+            name: currentModalItem.name,
+            price: currentModalItem.price,
+            qty: currentQty,
+            sharedWith: [clientUid],
+            orderedBy: clientUid, 
+            ordererName: clientName + " (Mozo)", 
+            timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+            status: 'pending' // Or confirmed depending on next features
+        }).then(() => {
+            showToast('Pedido cargado a ' + getFirstName(clientName));
+        }).catch(e => {
+            console.error("Waiter add error:", e);
+            showToast("Error al cargar pedido");
+        });
+
+        closeAddItemModal();
+        return;
+    }
+
+    // Check who it's shared with (CLIENT)
     const activePayer = document.querySelector('.payer-option.active')?.dataset.payer;
     let sharedWith = [state.user?.uid]; // Use real UID
     
