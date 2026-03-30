@@ -273,6 +273,85 @@
             </div>
         </main>
     </div>
+    
+    <!-- ==================== OWNER: RESTAURANTS LIST ==================== -->
+    <div class="screen" id="screen-owner-restaurants">
+        <header class="app-header">
+            <div class="header-left">
+                <div class="header-logo-mini">🏪</div>
+                <h2 class="header-title">Mis Locales</h2>
+            </div>
+            <div class="header-right">
+                <button class="header-btn" id="btn-owner-add-new-bar" title="Nuevo Local">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                </button>
+                <button class="header-btn" id="btn-profile" title="Mi Cuenta">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                </button>
+            </div>
+        </header>
+
+        <main class="home-content">
+            <div class="owner-restaurants-grid" id="owner-bars-grid" style="display:grid; grid-template-columns:1fr 1fr; gap:15px; margin-top:10px;">
+                <!-- dynamic bar cards -->
+            </div>
+        </main>
+    </div>
+
+    <!-- ==================== OWNER: BAR DETAIL & MANAGEMENT ==================== -->
+    <div class="screen" id="screen-owner-restaurant-detail">
+        <header class="sub-header">
+            <button class="btn-back" id="btn-back-to-restaurants">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+                <span>Atrás</span>
+            </button>
+            <h2 class="sub-header-title" id="bar-detail-title">Cargando...</h2>
+            <div class="sub-header-spacer"></div>
+        </header>
+
+        <!-- Tabs -->
+        <div class="owner-tabs" style="display:flex; padding:0 20px; border-bottom:1px solid var(--border); background:white;">
+            <button class="tab-btn active" data-tab="waiters">Mozos</button>
+            <button class="tab-btn" data-tab="menu">Menú</button>
+        </div>
+
+        <main class="home-content" style="padding-top:15px;">
+            <!-- Tab: Waiters -->
+            <div class="tab-content" id="tab-waiters">
+                <div class="form-group" style="display:flex; gap:10px; margin-bottom:20px;">
+                    <input type="email" id="input-new-waiter-email" class="form-input" placeholder="email@nuevo-mozo.com">
+                    <button class="btn btn-primary" id="btn-add-waiter-detail">Agregar</button>
+                </div>
+                <div id="owner-waiters-list" style="display:flex; flex-direction:column; gap:12px;">
+                    <!-- dynamic waiter list -->
+                </div>
+            </div>
+
+            <!-- Tab: Menu -->
+            <div class="tab-content" id="tab-menu" style="display:none;">
+                <div class="settings-card" style="margin-bottom:20px;">
+                    <h4>Agregar Plato</h4>
+                    <div class="form-group" style="margin-top:10px;">
+                        <input type="text" id="input-new-item-name" class="form-input" placeholder="Nombre (ej: Milanesa)">
+                    </div>
+                    <div style="display:flex; gap:10px; margin-top:10px;">
+                        <input type="number" id="input-new-item-price" class="form-input" placeholder="Precio ($)" style="flex:1;">
+                        <select id="input-new-item-cat" class="form-input" style="flex:1;">
+                            <option value="Platos">Plato</option>
+                            <option value="Bebidas">Bebida</option>
+                            <option value="Postres">Postre</option>
+                            <option value="Entradas">Entrada</option>
+                        </select>
+                    </div>
+                    <button class="btn btn-primary btn-full" id="btn-add-item-detail" style="margin-top:15px;">Añadir al menú</button>
+                </div>
+
+                <div id="owner-menu-list" style="display:flex; flex-direction:column; gap:12px;">
+                    <!-- dynamic menu list -->
+                </div>
+            </div>
+        </main>
+    </div>
 
     <!-- ==================== WAITER DASHBOARD ==================== -->
     <div class="screen" id="screen-waiter-dashboard">

@@ -188,14 +188,13 @@ function checkAuthState() {
 }
 function routeUserByRole(role) {
     if (role === 'owner') {
-        showScreen('screen-owner-dashboard');
-        loadOwnerData(); // New function we'll create
+        loadOwnerData();
     } else if (role === 'waiter') {
         showScreen('screen-waiter-dashboard');
-        loadWaiterData(); // New function we'll create
+        loadWaiterData();
     } else {
-        showScreen('screen-home'); // Client
-        loadClientData(); // New function we'll create
+        showScreen('screen-home');
+        loadClientData();
     }
 }
 
@@ -456,6 +455,213 @@ function getInitials(name) {
 }
 
 function renderRealtimeOrders() {} // implementation placeholder
+
+// ============================================
+// OWNER DASHBOARD EXPANSION
+// ============================================
+
+async function loadOwnerData() {
+    try {
+        const snapshot = await db.collection('restaurants')
+            .where('ownerId', '==', state.user.uid)
+            .get();
+
+        const restaurants = [];
+        snapshot.forEach(doc => {
+            restaurants.push({ id: doc.id, ...doc.data() });
+        });
+
+        state.ownerRestaurants = restaurants;
+
+        if (restaurants.length === 0) {
+            showScreen('screen-owner-setup');
+        } else {
+            showOwnerRestaurants();
+        }
+    } catch (e) {
+        console.error("Error loading owner data:", e);
+        showToast("Error al cargar tus locales");
+    }
+}
+
+function showOwnerRestaurants() {
+    const grid = document.getElementById('owner-bars-grid');
+    if (!grid) return;
+
+    if (state.ownerRestaurants.length === 0) {
+        grid.innerHTML = '<p style="grid-column: 1/-1; text-align:center; padding:40px; color:var(--text-sec);">No tenés locales creados.</p>';
+    } else {
+        grid.innerHTML = state.ownerRestaurants.map(bar => `
+            <div class="bar-card" onclick="enterOwnerBarDetail('${bar.id}')">
+                <div class="bar-card-icon">🏪</div>
+                <div class="bar-card-name">${bar.name}</div>
+                <div style="font-size:10px; color:var(--text-sec);">${bar.waiters?.length || 0} Mozos</div>
+            </div>
+        `).join('');
+    }
+
+    showScreen('screen-owner-restaurants');
+}
+
+let barTablesUnsubscribe = null;
+
+async function enterOwnerBarDetail(barId) {
+    const bar = state.ownerRestaurants.find(b => b.id === barId);
+    if (!bar) return;
+
+    state.selectedBar = bar;
+    document.getElementById('bar-detail-title').textContent = bar.name;
+
+    renderOwnerWaiters();
+    renderOwnerMenu();
+    
+    // Start listening to active tables for this bar
+    if (barTablesUnsubscribe) barTablesUnsubscribe();
+    barTablesUnsubscribe = db.collection('rooms')
+        .where('restaurantId', '==', barId)
+        .where('status', '==', 'active')
+        .onSnapshot(snapshot => {
+            const counts = {};
+            snapshot.forEach(doc => {
+                const data = doc.data();
+                counts[data.waiterId] = (counts[data.waiterId] || 0) + 1;
+            });
+            state.activeTablesCounts = counts;
+            renderOwnerWaiters(); // Refresh list with counts
+        });
+
+    showScreen('screen-owner-restaurant-detail');
+}
+
+function renderOwnerWaiters() {
+    const list = document.getElementById('owner-waiters-list');
+    if (!list || !state.selectedBar) return;
+
+    const waiters = state.selectedBar.waiters || [];
+    if (waiters.length === 0) {
+        list.innerHTML = '<p style="text-align:center; color:var(--text-sec); font-size:12px;">No hay mozos asignados</p>';
+    } else {
+        list.innerHTML = waiters.map(email => {
+            const tableCount = state.activeTablesCounts ? (state.activeTablesCounts[email] || 0) : 0;
+            return `
+                <div class="owner-item-row">
+                    <div class="owner-item-info">
+                        <h4>${email}</h4>
+                        <p>${tableCount > 0 ? `<span class="waiter-status-badge">${tableCount} mesas activas</span>` : 'Sin mesas activas'}</p>
+                    </div>
+                    <button class="btn-delete-small" onclick="removeWaiterFromBar('${email}')" title="Eliminar">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    </button>
+                </div>
+            `;
+        }).join('');
+    }
+}
+
+function renderOwnerMenu() {
+    const list = document.getElementById('owner-menu-list');
+    if (!list || !state.selectedBar) return;
+
+    const menu = state.selectedBar.menu || [];
+    if (menu.length === 0) {
+        list.innerHTML = '<p style="text-align:center; color:var(--text-sec); font-size:12px;">El menú está vacío</p>';
+    } else {
+        list.innerHTML = menu.map((item, index) => `
+            <div class="owner-item-row">
+                <div class="owner-item-info">
+                    <h4>${item.name}</h4>
+                    <p>$${item.price.toLocaleString('es-AR')} - ${item.category}</p>
+                </div>
+                <button class="btn-delete-small" onclick="removeMenuItemFromBar(${index})" title="Eliminar">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+            </div>
+        `).join('');
+    }
+}
+
+async function addWaiterToBar() {
+    const input = document.getElementById('input-new-waiter-email');
+    const email = input?.value?.toLowerCase().trim();
+    if (!email || !state.selectedBar) return;
+
+    try {
+        const newWaiters = [...(state.selectedBar.waiters || []), email];
+        await db.collection('restaurants').doc(state.selectedBar.id).update({
+            waiters: newWaiters
+        });
+        state.selectedBar.waiters = newWaiters;
+        input.value = '';
+        renderOwnerWaiters();
+        showToast("Mozo agregado");
+    } catch (e) {
+        console.error(e);
+        showToast("Error al agregar mozo");
+    }
+}
+
+async function removeWaiterFromBar(email) {
+    if (!confirm(`¿Eliminar a ${email}?`)) return;
+    try {
+        const newWaiters = (state.selectedBar.waiters || []).filter(e => e !== email);
+        await db.collection('restaurants').doc(state.selectedBar.id).update({
+            waiters: newWaiters
+        });
+        state.selectedBar.waiters = newWaiters;
+        renderOwnerWaiters();
+        showToast("Mozo eliminado");
+    } catch (e) {
+        console.error(e);
+        showToast("Error al eliminar mozo");
+    }
+}
+
+async function addMenuItemToBar() {
+    const nameInput = document.getElementById('input-new-item-name');
+    const priceInput = document.getElementById('input-new-item-price');
+    const catInput = document.getElementById('input-new-item-cat');
+
+    const name = nameInput.value.trim();
+    const price = parseFloat(priceInput.value);
+    const category = catInput.value.trim();
+
+    if (!name || isNaN(price) || !category || !state.selectedBar) {
+        showToast("Completá todos los campos");
+        return;
+    }
+
+    try {
+        const newItem = { id: Date.now().toString(), name, price, category };
+        const newMenu = [...(state.selectedBar.menu || []), newItem];
+        await db.collection('restaurants').doc(state.selectedBar.id).update({
+            menu: newMenu
+        });
+        state.selectedBar.menu = newMenu;
+        nameInput.value = ''; priceInput.value = ''; catInput.value = '';
+        renderOwnerMenu();
+        showToast("Item agregado");
+    } catch (e) {
+        console.error(e);
+        showToast("Error al agregar item");
+    }
+}
+
+async function removeMenuItemFromBar(index) {
+    if (!confirm("¿Eliminar este item del menú?")) return;
+    try {
+        const newMenu = [...(state.selectedBar.menu || [])];
+        newMenu.splice(index, 1);
+        await db.collection('restaurants').doc(state.selectedBar.id).update({
+            menu: newMenu
+        });
+        state.selectedBar.menu = newMenu;
+        renderOwnerMenu();
+        showToast("Item eliminado");
+    } catch (e) {
+        console.error(e);
+        showToast("Error al eliminar item");
+    }
+}
 
 async function loadRestaurantMenu(restId) {
     try {
@@ -981,44 +1187,9 @@ async function loadWaiterData() {
         // Requires index for waiterId, status, createdAt! We might get a perm error in console. If so we can remove orderBy.
     }
 }
-function loadClientData() {}
-
-async function loadOwnerData() {
-    if (!state.user) return;
-    
-    if (state.user.restaurantId) {
-        // Skip setup steps if already created
-        document.getElementById('owner-setup').style.display = 'none';
-        document.getElementById('owner-manage-waiters').style.display = 'none';
-        document.getElementById('owner-greeting').textContent = 'Tu Restaurante está activo';
-        
-        const exist = document.getElementById('owner-active-card');
-        if (!exist) {
-            document.getElementById('owner-setup').insertAdjacentHTML('afterend', `
-                <div class="settings-card" id="owner-active-card" style="margin-bottom:20px;text-align:center;">
-                    <div style="font-size:40px;margin-bottom:10px;">🏪</div>
-                    <h3 id="owner-rest-name-display">Cargando...</h3>
-                    <p style="color:var(--text-sec);" id="owner-rest-info">Tus mozos ya pueden crear mesas.</p>
-                </div>
-            `);
-        }
-        
-        try {
-            const restDoc = await db.collection('restaurants').doc(state.user.restaurantId).get();
-            if (restDoc.exists) {
-                const data = restDoc.data();
-                const title = document.getElementById('owner-rest-name-display');
-                if (title) title.textContent = data.name;
-                const info = document.getElementById('owner-rest-info');
-                if (info) info.textContent = `${data.waiters ? data.waiters.length : 0} mozos | ${data.menu ? data.menu.length : 0} items en menú`;
-            }
-        } catch(e) {
-            console.error("Error loading restaurant:", e);
-        }
-    } else {
-        document.getElementById('owner-setup').style.display = 'block';
-    }
-}
+// ============================================
+// BAR CREATION WIZARD (MULTI-BAR ADAPTED)
+// ============================================
 
 async function handleOwnerCreateRest() {
     const input = document.getElementById('input-owner-restaurant-name');
@@ -1034,11 +1205,8 @@ async function handleOwnerCreateRest() {
     };
     
     try {
-        // 1. Create restaurant
         const docRef = await db.collection('restaurants').add(restData);
-        // 2. Link User
-        await db.collection('users').doc(state.user.uid).update({ restaurantId: docRef.id });
-        state.user.restaurantId = docRef.id;
+        state.tempResourceId = docRef.id; // Store ID for next steps
         
         showToast('Restaurante creado: ' + name);
         document.getElementById('owner-setup').style.display = 'none';
@@ -1054,10 +1222,11 @@ async function handleOwnerAddWaiter() {
     if (!input?.value || !input.value.includes('@')) return showToast('Email inválido');
     
     const email = input.value.toLowerCase().trim();
-    if (!state.user.restaurantId) return showToast('No hay restaurante creado');
+    const restId = state.tempResourceId;
+    if (!restId) return showToast('Error: No se encontró el ID del restaurante');
     
     try {
-        await db.collection('restaurants').doc(state.user.restaurantId).update({
+        await db.collection('restaurants').doc(restId).update({
             waiters: firebase.firestore.FieldValue.arrayUnion(email)
         });
         
@@ -1087,9 +1256,10 @@ async function handleOwnerAddMenuItem() {
     const nameInput = document.getElementById('input-menu-name');
     const priceInput = document.getElementById('input-menu-price');
     const catInput = document.getElementById('input-menu-category');
+    const restId = state.tempResourceId;
 
     if (!nameInput.value || !priceInput.value) return showToast('Completá nombre y precio');
-    if (!state.user.restaurantId) return showToast('No hay restaurante creado');
+    if (!restId) return showToast('Error de sistema');
     
     const newItem = {
         id: 'item_' + Date.now(),
@@ -1099,7 +1269,7 @@ async function handleOwnerAddMenuItem() {
     };
 
     try {
-        await db.collection('restaurants').doc(state.user.restaurantId).update({
+        await db.collection('restaurants').doc(restId).update({
             menu: firebase.firestore.FieldValue.arrayUnion(newItem)
         });
         
@@ -1109,7 +1279,7 @@ async function handleOwnerAddMenuItem() {
                 <h4 style="margin:0;font-size:14px;color:var(--text-main);">${newItem.name}</h4>
                 <p style="margin:2px 0 0 0;font-size:12px;color:var(--text-sec);">${newItem.category}</p>
             </div>
-            <strong style="color:var(--text-main);">$${newItem.price.toFixed(2)}</strong>
+            <strong style="color:var(--text-main);">$${newItem.price.toLocaleString('es-AR')}</strong>
         </div>`;
 
         showToast('Item agregado al menú');
@@ -1123,18 +1293,10 @@ async function handleOwnerAddMenuItem() {
 
 function handleOwnerFinishSetup() {
     showToast('¡Restaurante configurado exitosamente! 🎉');
-    document.getElementById('owner-manage-menu').style.display = 'none';
-    document.getElementById('owner-greeting').textContent = 'Tu Restaurante está activo';
-    
-    // Create a visual summary
-    document.getElementById('owner-manage-menu').insertAdjacentHTML('afterend', `
-        <div class="settings-card" id="owner-active-card" style="margin-bottom:20px;text-align:center;">
-            <div style="font-size:40px;margin-bottom:10px;">🏪</div>
-            <h3>¡Todo listo!</h3>
-            <p style="color:var(--text-sec);">Tus mozos ya pueden crear mesas y los clientes ya pueden ver tu menú.</p>
-        </div>
-    `);
+    loadOwnerData(); // Reload all cards and go to cards view
 }
+
+function loadClientData() {}
 
 // ============================================
 // WAITER DASHBOARD LOGIC
@@ -1213,6 +1375,30 @@ function initEventListeners() {
 
     // --- Header Actions ---
     document.getElementById('btn-settings')?.addEventListener('click', () => showScreen('screen-settings'));
+    // --- Owner Expansion ---
+    document.getElementById('btn-owner-add-new-bar')?.addEventListener('click', () => {
+        showScreen('screen-owner-setup');
+    });
+
+    document.getElementById('btn-back-to-restaurants')?.addEventListener('click', () => {
+        if (barTablesUnsubscribe) barTablesUnsubscribe();
+        showOwnerRestaurants();
+    });
+
+    // Tab switching
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const tab = btn.dataset.tab;
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.style.display = 'none');
+            btn.classList.add('active');
+            document.getElementById(`tab-${tab}`).style.display = 'block';
+        });
+    });
+
+    document.getElementById('btn-add-waiter-detail')?.addEventListener('click', addWaiterToBar);
+    document.getElementById('btn-add-item-detail')?.addEventListener('click', addMenuItemToBar);
+
     document.getElementById('btn-profile')?.addEventListener('click', () => showScreen('screen-settings'));
     document.getElementById('btn-owner-settings')?.addEventListener('click', () => showScreen('screen-settings'));
 
